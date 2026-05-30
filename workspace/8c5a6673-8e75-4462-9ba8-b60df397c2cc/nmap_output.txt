@@ -1,4 +1,0 @@
-# Nmap 7.98 scan initiated Thu Mar 12 23:42:03 2026 as: nmap -sT -p 1-1000 -oG nmap_output.txt 104.18.26.120
-Host: 104.18.26.120 ()	Status: Up
-Host: 104.18.26.120 ()	Ports: 25/open/tcp//smtp///, 80/open/tcp//http///, 443/open/tcp//https///	Ignored State: filtered (997)
-# Nmap done at Thu Mar 12 23:42:21 2026 -- 1 IP address (1 host up) scanned in 18.21 seconds
