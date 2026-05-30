@@ -1,0 +1,19 @@
+
+; <<>> DiG 9.20.17 <<>> example.com
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 25805
+;; flags: qr rd ad; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
+;; WARNING: recursion requested but not available
+
+;; QUESTION SECTION:
+;example.com.			IN	A
+
+;; ANSWER SECTION:
+example.com.		10780	IN	A	104.18.26.120
+
+;; Query time: 30 msec
+;; SERVER: 8.8.8.8#53(8.8.8.8) (UDP)
+;; WHEN: Thu Mar 12 23:41:45 WAT 2026
+;; MSG SIZE  rcvd: 45
+

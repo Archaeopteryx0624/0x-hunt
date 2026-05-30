@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#060b10"/>
+<title>0x-Hunt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@400;600;700&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg0:#060b10;--bg1:#09111a;--bg2:#0d1923;--bg3:#111f2e;
+  --bd:#0e2030;--bd2:#163248;--bd3:#1e4060;
+  --c:#00d4ff;--c2:#00ff9d;--c3:#ff4560;--c4:#ffc145;--c5:#9d6fff;
+  --t0:#c0dff5;--t1:#5a88aa;--t2:#2e5068;--t3:#162535;
+  --mono:'Share Tech Mono',monospace;--ui:'Exo 2',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;height:100dvh}
+body{
+  overflow:hidden;background:var(--bg0);color:var(--t0);
+  font-family:var(--mono);display:flex;flex-direction:column;
+  max-height:100dvh;
+}
+/* scanlines */
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.04) 2px,rgba(0,0,0,.04) 4px);}
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bd3);border-radius:2px}
+
+/* ═══ TOPBAR ═════════════════════════════════════════════════════════ */
+#topbar{
+  height:48px;flex-shrink:0;display:flex;align-items:center;
+  padding:0 10px;gap:8px;background:var(--bg1);
+  border-bottom:2px solid var(--bd2);position:relative;z-index:100;
+}
+#topbar::after{
+  content:'';position:absolute;bottom:-2px;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent 0%,var(--c) 30%,var(--c2) 60%,transparent 100%);
+  animation:sweep 3s linear infinite;
+}
+@keyframes sweep{0%{transform:translateX(-120%)}100%{transform:translateX(120%)}}
+
+#ham{
+  width:36px;height:36px;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:5px;background:transparent;
+  border:1px solid var(--bd2);border-radius:4px;cursor:pointer;flex-shrink:0;
+}
+#ham.open{border-color:var(--c)}
+#ham span{width:14px;height:1.5px;background:var(--t1);display:block;transition:all .2s;transform-origin:center}
+#ham.open span:nth-child(1){transform:translateY(6.5px) rotate(45deg);background:var(--c)}
+#ham.open span:nth-child(2){opacity:0;transform:scaleX(0)}
+#ham.open span:nth-child(3){transform:translateY(-6.5px) rotate(-45deg);background:var(--c)}
+
+#logo{font-family:var(--ui);font-weight:700;font-size:16px;letter-spacing:2px;color:var(--c);white-space:nowrap;text-shadow:0 0 16px rgba(0,212,255,.35)}
+#logo b{color:var(--c2)}
+#target-chip{flex:1;min-width:0;font-size:10px;color:var(--t2);font-family:var(--ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
+#target-chip strong{color:var(--c)}
+
+.dots{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--t3);flex-shrink:0}
+.dot.on{background:var(--c2);box-shadow:0 0 5px var(--c2);animation:blink 1.5s infinite}
+.dot.err{background:var(--c3);box-shadow:0 0 5px var(--c3)}
+.dot.warn{background:var(--c4);box-shadow:0 0 5px var(--c4)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+#agent-pill{padding:2px 8px;font-family:var(--ui);font-size:9px;letter-spacing:1.5px;font-weight:700;border:1px solid var(--bd2);color:var(--t2);border-radius:3px;flex-shrink:0;white-space:nowrap}
+#agent-pill.running{border-color:var(--c2);color:var(--c2);animation:blink 1.5s infinite}
+#agent-pill.paused{border-color:var(--c4);color:var(--c4)}
+
+/* ═══ TABBAR ═════════════════════════════════════════════════════════ */
+#tabbar{
+  height:52px;flex-shrink:0;display:flex;
+  background:var(--bg1);border-bottom:1px solid var(--bd2);
+}
+.tb{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;cursor:pointer;background:transparent;border:none;
+  border-bottom:2px solid transparent;color:var(--t2);transition:color .15s,border-color .15s;
+  padding:4px 0;position:relative;
+}
+.tb.active{color:var(--c);border-bottom-color:var(--c);background:rgba(0,212,255,.04)}
+.tb-icon{font-size:18px;line-height:1}
+.tb-lbl{font-family:var(--ui);font-size:8px;letter-spacing:1.5px;font-weight:700}
+.tb-badge{
+  position:absolute;top:4px;right:calc(50% - 18px);
+  min-width:14px;height:14px;padding:0 3px;
+  background:var(--c3);color:#fff;font-family:var(--ui);font-size:7px;font-weight:700;
+  border-radius:7px;display:none;align-items:center;justify-content:center;
+}
+.tb-badge.show{display:flex}
+
+/* ═══ HUD ════════════════════════════════════════════════════════════ */
+#hud{
+  display:flex;flex-shrink:0;background:var(--bg0);
+  border-bottom:1px solid var(--bd);overflow:hidden;
+}
+.hstat{
+  flex:1;padding:4px 2px;text-align:center;
+  border-right:1px solid var(--bd);min-width:0;
+}
+.hstat:last-child{border-right:none}
+.hv{font-family:var(--ui);font-size:13px;font-weight:700;color:var(--c);line-height:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hv.warn{color:var(--c4)}
+.hl{font-family:var(--ui);font-size:7px;color:var(--t3);letter-spacing:1px;margin-top:1px}
+/* RAM/CPU meters */
+.hstat-meter{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5px 6px;gap:3px}
+.mbar{width:100%;height:4px;background:var(--bg3);border:1px solid var(--bd);border-radius:1px;overflow:hidden;min-width:28px}
+.mfill{height:100%;background:var(--c2);transition:width 1s ease;border-radius:1px}
+.mfill.warn{background:var(--c4)}
+.mfill.crit{background:var(--c3)}
+.mlbl{font-family:var(--ui);font-size:7px;color:var(--t3);letter-spacing:1px;white-space:nowrap}
+.mval{font-family:var(--mono);font-size:9px;color:var(--t1)}
+
+/* ═══ PANELS ═════════════════════════════════════════════════════════ */
+#panels{flex:1;min-height:0;position:relative;overflow:hidden}
+
+/* Each panel fills its container, hidden by default */
+.panel{
+  display:none;
+  position:absolute;inset:0;
+  overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+}
+.panel.active{display:block}
+
+/* LOG panel */
+#panel-log{padding:8px;display:flex;flex-direction:column;gap:7px}
+#empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:55vh;gap:8px;color:var(--t3)}
+.logo-big{font-family:var(--ui);font-size:24px;font-weight:700;color:var(--bd3);letter-spacing:6px}
+#empty-state p{font-size:10px;letter-spacing:1px;font-family:var(--ui)}
+
+/* Messages */
+.msg{border-radius:3px;border:1px solid var(--bd);overflow:hidden;font-size:12px;line-height:1.65}
+.msg-hd{padding:5px 10px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;font-family:var(--ui);font-size:9px;letter-spacing:1px;font-weight:700}
+.msg-body{padding:9px 10px;white-space:pre-wrap;word-break:break-word;overflow-wrap:break-word}
+.msg.ai{border-color:var(--bd2)}
+.msg.ai .msg-hd{background:rgba(0,212,255,.05);color:var(--c)}
+.msg.user .msg-hd{background:rgba(0,255,157,.04);color:var(--c2)}
+.msg.sys{border-color:var(--bd);opacity:.6}
+.msg.sys .msg-hd{background:transparent;color:var(--t2);font-size:8px}
+.msg.finding{border-color:var(--c4)!important}
+.msg.finding .msg-hd{background:rgba(255,193,69,.07)!important;color:var(--c4)!important}
+.msg.syscmd{border-color:var(--c5)!important}
+.msg.syscmd .msg-hd{background:rgba(157,111,255,.06)!important;color:var(--c5)!important}
+
+/* Exec cards */
+.exec-card{border:1px solid var(--bd2);border-radius:3px;background:var(--bg1);overflow:hidden;font-size:11px}
+.exec-hd{padding:5px 10px;background:rgba(0,212,255,.04);border-bottom:1px solid var(--bd);font-family:var(--ui);font-size:8px;letter-spacing:1px;font-weight:700;display:flex;align-items:center;justify-content:space-between}
+.exec-cmd{padding:7px 10px;color:var(--c);font-family:var(--mono);background:var(--bg2);word-break:break-all;font-size:11px}
+.exec-cmd::before{content:'$ ';color:var(--c2)}
+.exec-out{
+  padding:7px 10px;color:var(--t1);font-family:var(--mono);
+  max-height:200px;overflow-y:auto;overflow-x:auto;  /* ← horizontal scroll for long output */
+  font-size:10.5px;white-space:pre;                  /* ← pre not pre-wrap for proper scroll */
+  word-break:normal;
+}
+.exec-card.ok .exec-hd{border-bottom-color:var(--c2)}
+.exec-card.fail .exec-hd{border-bottom-color:var(--c3)}
+.exec-running .exec-out{color:var(--t3);font-style:italic}
+.exec-running .exec-hd::after{content:'●';margin-left:4px;color:var(--c);animation:blink 1s infinite}
+
+/* Markdown rendering */
+.msg-body code{background:var(--bg3);padding:1px 5px;border-radius:2px;color:var(--c4);font-size:10.5px;word-break:break-all}
+.msg-body pre{
+  background:var(--bg2);border:1px solid var(--bd);padding:8px;border-radius:2px;
+  overflow-x:auto;   /* ← horizontal scroll on code blocks */
+  margin:5px 0;
+  -webkit-overflow-scrolling:touch;
+}
+.msg-body pre code{background:transparent;padding:0;color:var(--t0);white-space:pre;word-break:normal;font-size:10.5px}
+.msg-body strong{color:var(--t0);font-weight:600}
+.msg-body .h2{color:var(--c);font-family:var(--ui);font-size:13px;font-weight:700;letter-spacing:1px;margin:6px 0 3px}
+.msg-body .think{color:var(--c5);border-left:2px solid var(--c5);padding-left:8px;margin:4px 0;font-size:11px}
+.msg-body .phase-tag{display:inline-block;padding:1px 7px;border:1px solid var(--c5);color:var(--c5);font-family:var(--ui);font-size:9px;font-weight:700;letter-spacing:2px;border-radius:2px;margin-bottom:5px}
+.msg-body .expect{color:var(--t2);font-size:11px;border-left:2px solid var(--t3);padding-left:8px;margin-top:4px}
+
+/* FINDINGS panel */
+#panel-findings{padding:8px;display:flex;flex-direction:column;gap:8px}
+.no-data{text-align:center;padding:50px 10px;font-family:var(--ui);font-size:10px;color:var(--t3);letter-spacing:2px;font-weight:700}
+.fcard{border:1px solid var(--bd2);border-radius:3px;overflow:hidden;background:var(--bg2)}
+.fcard-type{padding:8px 10px;font-family:var(--ui);font-size:10px;letter-spacing:1px;font-weight:700;color:var(--c4);border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;background:rgba(255,193,69,.04)}
+.fcard-sev{font-size:9px;padding:2px 7px;border-radius:2px;font-weight:700}
+.sev-critical{background:rgba(255,69,96,.15);color:var(--c3);border:1px solid var(--c3)}
+.sev-high{background:rgba(255,130,50,.12);color:#ff8230;border:1px solid #ff8230}
+.sev-medium{background:rgba(255,193,69,.1);color:var(--c4);border:1px solid var(--c4)}
+.sev-low{background:rgba(0,255,157,.08);color:var(--c2);border:1px solid var(--c2)}
+.sev-informational{background:rgba(0,212,255,.08);color:var(--c);border:1px solid var(--c)}
+.fcard-detail{padding:8px 10px;font-size:10px;color:var(--t1);white-space:pre-wrap;word-break:break-word;max-height:150px;overflow-y:auto}
+
+/* TERMINAL panel — flex column, must NOT use display:block */
+#panel-terminal{
+  display:none;          /* hidden by default like all panels */
+  flex-direction:column; /* overridden when active */
+  padding:0!important;
+}
+#panel-terminal.active{
+  display:flex!important; /* flex only when active */
+}
+#term-out{
+  flex:1;padding:10px;font-size:11px;color:var(--t0);
+  overflow-y:auto;overflow-x:auto;   /* ← both axes */
+  -webkit-overflow-scrolling:touch;
+  white-space:pre;                   /* preserve terminal output exactly */
+  word-break:normal;
+  min-height:0;
+}
+#term-bar{
+  display:flex;align-items:center;border-top:1px solid var(--bd);
+  padding:8px 10px;gap:8px;background:var(--bg1);flex-shrink:0;
+  padding-bottom:max(8px,env(safe-area-inset-bottom));
+}
+#term-bar span{color:var(--c2);font-size:14px;flex-shrink:0}
+#term-cmd{
+  flex:1;background:transparent;border:none;outline:none;
+  color:var(--c);font-family:var(--mono);font-size:13px;
+  -webkit-appearance:none;min-width:0;
+}
+
+/* FILES panel */
+#panel-files{padding:8px;display:flex;flex-direction:column;gap:0}
+.ft-item{
+  padding:10px 6px;font-size:12px;cursor:pointer;display:flex;align-items:center;
+  gap:6px;color:var(--t1);border-radius:2px;border-bottom:1px solid var(--bd);
+}
+.ft-item:active{background:var(--bg3)}
+.ft-item.dir{color:var(--c5)}
+.ft-item .fsize{margin-left:auto;font-size:9px;color:var(--t3);flex-shrink:0}
+.ft-indent{padding-left:18px}
+
+/* ═══ INPUT BAR ══════════════════════════════════════════════════════ */
+#input-bar{
+  flex-shrink:0;border-top:1px solid var(--bd2);background:var(--bg1);
+  padding:8px 10px;padding-bottom:max(8px,env(safe-area-inset-bottom));
+}
+#needs-input-banner{
+  display:none;padding:6px 10px;background:rgba(157,111,255,.1);
+  border:1px solid var(--c5);color:var(--c5);
+  font-size:9px;font-family:var(--ui);font-weight:700;letter-spacing:1px;
+  margin-bottom:7px;border-radius:3px;
+}
+#needs-input-banner.show{display:block}
+.input-row{display:flex;gap:6px;align-items:flex-end}
+#user-input{
+  flex:1;background:var(--bg3);border:1px solid var(--bd2);color:var(--t0);
+  font-family:var(--mono);font-size:14px;padding:9px 10px;outline:none;
+  resize:none;border-radius:3px;transition:border-color .15s;
+  min-height:44px;max-height:100px;-webkit-appearance:none;line-height:1.4;
+}
+#user-input:focus{border-color:var(--c)}
+#user-input::placeholder{color:var(--t3)}
+.ibtns{display:flex;gap:5px;align-items:flex-end;flex-shrink:0}
+.ib{
+  height:44px;padding:0 12px;background:transparent;
+  border:1px solid var(--bd2);color:var(--t1);
+  font-family:var(--ui);font-size:11px;font-weight:700;letter-spacing:1px;
+  cursor:pointer;border-radius:3px;transition:all .15s;
+  display:flex;align-items:center;white-space:nowrap;
+}
+.ib.go{border-color:var(--c);color:var(--c)}
+.ib.go:active,.ib.go:focus{background:var(--c);color:var(--bg0)}
+.ib.stop{border-color:var(--c3);color:var(--c3)}
+.ib.stop:active{background:var(--c3);color:var(--bg0)}
+.ib:disabled{opacity:.3;pointer-events:none}
+.typing-ind{height:16px;display:flex;align-items:center;gap:4px;margin-top:5px}
+.td{width:4px;height:4px;border-radius:50%;background:var(--c);opacity:0;display:none}
+.td:nth-child(2){animation-delay:.2s}
+.td:nth-child(3){animation-delay:.4s}
+.typing-ind.show .td{display:block;animation:tdot 1.2s infinite}
+.tl{margin-left:4px;font-size:9px;color:var(--t2);font-family:var(--ui);font-weight:700;letter-spacing:1px;display:none}
+.typing-ind.show .tl{display:block}
+@keyframes tdot{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
+
+/* ═══ DRAWER ═════════════════════════════════════════════════════════ */
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;backdrop-filter:blur(2px)}
+#overlay.show{display:block}
+#drawer{
+  position:fixed;top:0;left:0;bottom:0;
+  width:min(320px,90vw);background:var(--bg1);border-right:1px solid var(--bd2);
+  display:flex;flex-direction:column;z-index:201;
+  transform:translateX(-100%);transition:transform .25s cubic-bezier(.4,0,.2,1);
+  overflow:hidden;
+}
+#drawer.open{transform:translateX(0)}
+.drw-head{
+  padding:14px;border-bottom:1px solid var(--bd);
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+  padding-top:max(14px,env(safe-area-inset-top));
+}
+.drw-title{font-family:var(--ui);font-size:12px;font-weight:700;letter-spacing:2px;color:var(--c)}
+#drw-close{background:transparent;border:none;color:var(--t2);font-size:20px;cursor:pointer;padding:2px 4px;line-height:1}
+.drw-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#key-btn{
+  display:block;margin:12px 14px 0;padding:10px 14px;width:calc(100% - 28px);
+  background:transparent;border:1px solid var(--bd2);color:var(--t1);
+  font-family:var(--ui);font-size:11px;font-weight:700;letter-spacing:1.5px;
+  cursor:pointer;border-radius:3px;transition:all .15s;text-align:left;
+}
+#key-btn.connected{border-color:var(--c2);color:var(--c2)}
+.conn-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--bd);font-family:var(--ui);font-size:10px;font-weight:700}
+.conn-row>span{display:flex;align-items:center;gap:5px;color:var(--t2)}
+.sec{border-bottom:1px solid var(--bd);padding:14px}
+.sec-hd{font-family:var(--ui);font-size:9px;font-weight:700;letter-spacing:2px;color:var(--t3);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.fg{margin-bottom:10px}
+.fg label{display:block;font-size:9px;color:var(--t2);letter-spacing:1.5px;margin-bottom:4px;font-family:var(--ui);font-weight:700}
+.fg input,.fg textarea{
+  width:100%;background:var(--bg3);border:1px solid var(--bd2);color:var(--c);
+  font-family:var(--mono);font-size:13px;padding:9px 10px;outline:none;resize:none;
+  border-radius:3px;transition:border-color .15s;-webkit-appearance:none;
+}
+.fg input:focus,.fg textarea:focus{border-color:var(--c)}
+.fg input::placeholder,.fg textarea::placeholder{color:var(--t3)}
+.btn-launch{
+  width:100%;padding:12px;background:transparent;border:1px solid var(--c);color:var(--c);
+  font-family:var(--ui);font-size:12px;font-weight:700;letter-spacing:2px;
+  cursor:pointer;border-radius:3px;transition:all .15s;
+}
+.btn-launch:active{background:var(--c);color:var(--bg0)}
+.btn-launch:disabled{border-color:var(--t3);color:var(--t3)}
+#sess-wrap{padding:8px}
+.si{padding:10px;border:1px solid var(--bd);background:var(--bg2);cursor:pointer;margin-bottom:6px;border-radius:3px;position:relative;overflow:hidden}
+.si.active{border-color:var(--c);background:var(--bg3)}
+.si.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--c)}
+.si-tgt{font-size:12px;color:var(--t0);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:22px}
+.si-meta{display:flex;gap:8px;margin-top:4px;font-size:9px;color:var(--t2);font-family:var(--ui);font-weight:700}
+.si-phase{font-size:9px;color:var(--c5);letter-spacing:1px;font-family:var(--ui);font-weight:700;margin-top:3px}
+.si-finds{color:var(--c4)}
+.si-del{position:absolute;top:8px;right:8px;background:transparent;border:none;color:var(--t3);cursor:pointer;font-size:13px;padding:2px}
+.ss{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.s-active{background:var(--c2);box-shadow:0 0 4px var(--c2)}
+.s-paused{background:var(--c4)}
+.s-error{background:var(--c3)}
+.s-waiting{background:var(--c5);animation:blink 1.5s infinite}
+.drw-stop{padding:12px 14px;border-top:1px solid var(--bd);flex-shrink:0}
+.drw-stop button{width:100%;padding:11px;background:transparent;border:1px solid var(--c3);color:var(--c3);font-family:var(--ui);font-size:11px;font-weight:700;letter-spacing:1.5px;cursor:pointer;border-radius:3px}
+
+/* ═══ MODALS ═════════════════════════════════════════════════════════ */
+.moverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:500;align-items:flex-end;justify-content:center}
+.moverlay.show{display:flex}
+.mbox{background:var(--bg1);border:1px solid var(--bd2);padding:20px;width:100%;border-radius:8px 8px 0 0;box-shadow:0 -6px 40px rgba(0,212,255,.1);padding-bottom:max(20px,env(safe-area-inset-bottom));max-height:90vh;overflow-y:auto}
+.mbox h2{font-family:var(--ui);font-size:13px;font-weight:700;letter-spacing:2px;color:var(--c);margin-bottom:14px}
+.mbtns{display:flex;gap:8px;margin-top:14px}
+.mbtn{padding:12px 20px;font-family:var(--ui);font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;border-radius:3px;flex:1}
+.mbtn.go{background:transparent;border:1px solid var(--c);color:var(--c)}
+.mbtn.go:active{background:var(--c);color:var(--bg0)}
+.mbtn.no{background:transparent;border:1px solid var(--bd2);color:var(--t1)}
+#file-modal.moverlay{align-items:center}
+#file-modal .mbox{border-radius:8px;margin:10px;max-width:calc(100% - 20px)}
+#file-modal pre{overflow:auto;-webkit-overflow-scrolling:touch;background:var(--bg2);border:1px solid var(--bd);padding:10px;font-size:10.5px;color:var(--t0);white-space:pre;word-break:normal;border-radius:2px;margin-top:10px;max-height:50vh}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <button id="ham" onclick="toggleDrawer()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div id="logo">0x<b>-HUNT</b></div>
+  <div id="target-chip"><strong id="hud-target">NO TARGET</strong></div>
+  <div class="dots">
+    <div class="dot" id="ws-dot" title="WebSocket"></div>
+    <div class="dot" id="groq-dot" title="Groq API"></div>
+  </div>
+  <div id="agent-pill">IDLE</div>
+</div>
+
+<!-- ICON TAB BAR -->
+<div id="tabbar">
+  <button class="tb active" onclick="switchTab('log')" data-tab="log">
+    <span class="tb-icon">📟</span>
+    <span class="tb-lbl">LOG</span>
+  </button>
+  <button class="tb" onclick="switchTab('findings')" data-tab="findings">
+    <span class="tb-icon">🚨</span>
+    <span class="tb-lbl">FINDINGS</span>
+    <span class="tb-badge" id="badge-findings">0</span>
+  </button>
+  <button class="tb" onclick="switchTab('terminal')" data-tab="terminal">
+    <span class="tb-icon">⌨️</span>
+    <span class="tb-lbl">SHELL</span>
+  </button>
+  <button class="tb" onclick="switchTab('files')" data-tab="files">
+    <span class="tb-icon">📂</span>
+    <span class="tb-lbl">FILES</span>
+  </button>
+</div>
+
+<!-- HUD STATS -->
+<div id="hud">
+  <div class="hstat"><div class="hv" id="stat-cmds">0</div><div class="hl">CMDS</div></div>
+  <div class="hstat"><div class="hv warn" id="stat-findings">0</div><div class="hl">FINDS</div></div>
+  <div class="hstat"><div class="hv" id="stat-iter">0</div><div class="hl">ITER</div></div>
+  <div class="hstat"><div class="hv" id="stat-phase" style="font-size:10px;letter-spacing:.3px">—</div><div class="hl">PHASE</div></div>
+  <div class="hstat hstat-meter">
+    <div class="mlbl">RAM</div>
+    <div class="mbar"><div class="mfill" id="ram-fill" style="width:0%"></div></div>
+    <div class="mval" id="ram-pct">—</div>
+  </div>
+  <div class="hstat hstat-meter">
+    <div class="mlbl">CPU</div>
+    <div class="mbar"><div class="mfill" id="cpu-fill" style="width:0%"></div></div>
+    <div class="mval" id="cpu-pct">—</div>
+  </div>
+</div>
+
+<!-- PANELS -->
+<div id="panels">
+  <div class="panel active" id="panel-log">
+    <div id="empty-state">
+      <div class="logo-big">0x-HUNT</div>
+      <p>Private Bug Bounty Hunter</p>
+      <p style="margin-top:6px;font-size:9px">☰ open menu · set target · launch</p>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-findings">
+    <div class="no-data" id="findings-empty">NO FINDINGS YET</div>
+  </div>
+
+  <div class="panel" id="panel-terminal">
+    <div id="term-out"></div>
+    <div id="term-bar">
+      <span>$</span>
+      <input id="term-cmd" type="text" placeholder="command (needs active session)..."
+             autocomplete="off" spellcheck="false" autocapitalize="none"
+             autocorrect="off" enterkeyhint="send"/>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-files">
+    <div class="no-data" id="files-empty">NO FILES YET</div>
+    <div id="file-tree-root"></div>
+  </div>
+</div>
+
+<!-- INPUT BAR -->
+<div id="input-bar">
+  <div id="needs-input-banner">⏸ AGENT NEEDS INPUT — type below</div>
+  <div class="input-row">
+    <textarea id="user-input" rows="1" placeholder="Message, CHECKRAM, HELP, credentials..."></textarea>
+    <div class="ibtns">
+      <button class="ib" onclick="quickSend('Continue the current phase.')" id="cont-btn" title="Continue">▶</button>
+      <button class="ib go" onclick="sendMessage()" id="send-btn">SEND</button>
+      <button class="ib stop" id="stop-btn" onclick="stopAgent()" style="display:none">■</button>
+    </div>
+  </div>
+  <div class="typing-ind" id="typing-ind">
+    <div class="td"></div><div class="td"></div><div class="td"></div>
+    <span class="tl">HUNTING...</span>
+  </div>
+</div>
+
+<!-- DRAWER OVERLAY -->
+<div id="overlay" onclick="closeDrawer()"></div>
+
+<!-- DRAWER -->
+<div id="drawer">
+  <div class="drw-head">
+    <span class="drw-title">0x-HUNT // CONTROL</span>
+    <button id="drw-close" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="drw-body">
+    <button id="key-btn" onclick="closeDrawer();showGroqModal()">⚿  GROQ API KEY</button>
+    <div class="conn-row">
+      <span><div class="dot" id="d-ws-dot"></div><span id="d-ws-lbl">OFFLINE</span></span>
+      <span><div class="dot" id="d-groq-dot"></div><span id="d-groq-lbl">GROQ</span></span>
+      <span id="d-agent-lbl" style="color:var(--t2)">IDLE</span>
+    </div>
+    <div class="sec">
+      <div class="sec-hd">▶ NEW HUNT</div>
+      <div class="fg">
+        <label>TARGET DOMAIN</label>
+        <input id="new-target" type="text" placeholder="target.com" autocomplete="off" spellcheck="false" autocapitalize="none" inputmode="url"/>
+      </div>
+      <div class="fg">
+        <label>SCOPE (one per line)</label>
+        <textarea id="new-scope" rows="3" placeholder="*.target.com&#10;api.target.com" spellcheck="false"></textarea>
+      </div>
+      <div class="fg">
+        <label>NOTES (optional)</label>
+        <textarea id="new-notes" rows="2" placeholder="No auth bypass, avoid prod DB..." spellcheck="false"></textarea>
+      </div>
+      <button class="btn-launch" onclick="launchHunt()">▶ LAUNCH HUNT</button>
+    </div>
+    <div class="sec" style="border-bottom:none">
+      <div class="sec-hd">
+        SESSIONS
+        <span style="display:flex;align-items:center;gap:8px">
+          <span id="sess-count" style="color:var(--t2);font-weight:400">0</span>
+          <button onclick="loadSessions()" style="background:transparent;border:none;color:var(--t2);cursor:pointer;font-size:16px;padding:0;line-height:1">↻</button>
+        </span>
+      </div>
+      <div id="sess-wrap"></div>
+    </div>
+    <div class="drw-stop">
+      <button id="drw-stop-btn" onclick="stopAgent()" style="display:none">■ STOP AGENT</button>
+    </div>
+  </div>
+</div>
+
+<!-- GROQ MODAL -->
+<div class="moverlay" id="groq-modal" onclick="if(event.target===this)closeGroqModal()">
+  <div class="mbox">
+    <h2>⚿ GROQ API KEY</h2>
+    <div class="fg">
+      <label>API KEY</label>
+      <input type="password" id="groq-key-input" placeholder="gsk_..." style="font-size:14px;padding:11px"/>
+    </div>
+    <div style="font-size:10px;color:var(--t2);margin-top:8px;line-height:1.9;font-family:var(--ui)">
+      Get your key at console.groq.com<br>
+      Model: llama-3.3-70b-versatile · Stored locally only<br>
+      If VPN is active, key connects through it automatically
+    </div>
+    <div id="groq-status" style="margin-top:8px;font-size:11px;color:var(--t3);font-family:var(--ui);font-weight:700"></div>
+    <div class="mbtns">
+      <button class="mbtn go" onclick="saveGroqKey()">CONNECT</button>
+      <button class="mbtn no" onclick="closeGroqModal()">CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<!-- FILE VIEWER MODAL -->
+<div class="moverlay" id="file-modal" onclick="if(event.target===this)closeFileModal()">
+  <div class="mbox" style="border-radius:8px;margin:10px;max-width:calc(100% - 20px);max-height:90vh">
+    <h2 id="file-modal-title" style="word-break:break-all">FILE</h2>
+    <pre id="file-modal-content"></pre>
+    <div class="mbtns">
+      <button class="mbtn no" onclick="closeFileModal()">CLOSE</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let ws = null, wsReady = false, groqReady = false;
+let activeSessionId = null, agentRunning = false;
+let statCmds = 0, statFindings = 0, statIter = 0, findingsBadge = 0;
+const execCards = new Map();
+let currentTab = 'log';
+
+// ── WEBSOCKET ─────────────────────────────────────────────────────────────────
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}`);
+  ws.onopen = () => {
+    wsReady = true;
+    setDots('ws', 'on'); setText('d-ws-lbl', 'ONLINE');
+    const saved = localStorage.getItem('0xhunt_groq_key');
+    if (saved) { document.getElementById('groq-key-input').value = saved; initGroq(saved); }
+    loadSessions();
+  };
+  ws.onclose = () => {
+    wsReady = false;
+    setDots('ws', ''); setText('d-ws-lbl', 'OFFLINE');
+    setTimeout(connectWS, 2500);
+  };
+  ws.onmessage = e => { try { handleMsg(JSON.parse(e.data)); } catch(err) { console.error(err); } };
+}
+
+function setDots(type, cls) {
+  const ids = type === 'ws' ? ['ws-dot','d-ws-dot'] : ['groq-dot','d-groq-dot'];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) { el.className = 'dot'; if (cls) el.classList.add(cls); } });
+}
+function wsSend(data) { if (wsReady && ws && ws.readyState === 1) ws.send(JSON.stringify(data)); }
+
+// ── MESSAGE HANDLER ───────────────────────────────────────────────────────────
+function handleMsg(msg) {
+  switch (msg.type) {
+    case 'connected':
+      renderSessions(msg.sessions || []);
+      break;
+
+    case 'groq_connecting':
+      document.getElementById('groq-status').textContent = 'Connecting (retrying up to 3×)...';
+      document.getElementById('groq-status').style.color = 'var(--c4)';
+      break;
+
+    case 'groq_ready':
+      groqReady = true;
+      setDots('groq', 'on'); setText('d-groq-lbl', 'GROQ ✓');
+      document.getElementById('groq-status').textContent = `✓ Connected (attempt ${msg.attempt||1})`;
+      document.getElementById('groq-status').style.color = 'var(--c2)';
+      const kb = document.getElementById('key-btn');
+      kb.classList.add('connected'); kb.textContent = '⚿  GROQ CONNECTED';
+      setTimeout(closeGroqModal, 700);
+      break;
+
+    case 'groq_error':
+      groqReady = false; setDots('groq', 'err');
+      const vpnHint = msg.vpn ? '' : ' (VPN not detected — check connection)';
+      document.getElementById('groq-status').textContent = '✗ ' + msg.message + vpnHint;
+      document.getElementById('groq-status').style.color = 'var(--c3)';
+      break;
+
+    case 'session_created':
+      activeSessionId = msg.session.id; clearLog(); resetStats();
+      updateTarget(msg.session.target);
+      sysMsg('Hunt launched → ' + msg.session.target + '\nType HELP for operator commands');
+      setRunning(true); loadSessions(); closeDrawer();
+      break;
+
+    case 'session_resumed':
+      activeSessionId = msg.session.id; clearLog(); resetStats();
+      updateTarget(msg.session.target);
+      (msg.history || []).forEach(m => {
+        if (m.role === 'assistant') renderAiMsg(m.content);
+        else if (m.role === 'user' && !m.content.startsWith('COMMAND:')) renderUserMsg(m.content);
+      });
+      (msg.findings || []).forEach(f => { appendFindingCard(f.text); statFindings++; findingsBadge++; });
+      statCmds = (msg.commandHistory || []).length;
+      statIter = msg.session.loopIteration || 0;
+      updateStats(); setPhase(msg.session.phase || 'recon'); updateBadge();
+      sysMsg('Resumed · ' + msg.session.target + ' · ' + statFindings + ' finding(s)');
+      loadSessions(); loadFileTree(); showStop(true);
+      if (msg.session.status === 'waiting_input')
+        document.getElementById('needs-input-banner').classList.add('show');
+      closeDrawer();
+      break;
+
+    case 'ai_message':
+      setRunning(false); setTyping(false);
+      renderAiMsg(msg.content);
+      statIter = msg.iteration || statIter + 1;
+      updateStats(); loadFileTree();
+      break;
+
+    case 'executing':
+      addExecCard(msg.command); statCmds++; updateStats();
+      break;
+
+    case 'command_result':
+      updateExecCard(msg.command, msg.output);
+      break;
+
+    case 'finding':
+      statFindings++; findingsBadge++; updateStats(); updateBadge();
+      appendFindingCard(msg.finding.text);
+      if (currentTab !== 'findings') {
+        document.querySelector('.tb[data-tab="findings"]').classList.add('flash');
+        setTimeout(() => document.querySelector('.tb[data-tab="findings"]').classList.remove('flash'), 600);
+      }
+      break;
+
+    case 'needs_input':
+      setRunning(false); setTyping(false);
+      document.getElementById('needs-input-banner').classList.add('show');
+      document.getElementById('user-input').focus();
+      break;
+
+    case 'agent_stopped':
+      setRunning(false); setTyping(false);
+      sysMsg('■ Agent stopped');
+      showStop(false); setPill('PAUSED', 'paused');
+      loadSessions();
+      break;
+
+    case 'agent_paused': {
+      setRunning(false); setTyping(false);
+      const reasons = { error: 'API error — check key / VPN', iteration_cap: 'Iteration cap reached' };
+      sysMsg('⚠ Agent paused: ' + (reasons[msg.reason] || msg.reason));
+      loadSessions();
+      break;
+    }
+
+    case 'sessions_list':
+      renderSessions(msg.sessions || []);
+      break;
+
+    case 'manual_command_result': {
+      const o = msg.output;
+      const termOut = document.getElementById('term-out');
+      termOut.textContent += `$ ${msg.command}\n${o.stdout || ''}${o.stderr ? '\nSTDERR: '+o.stderr : ''}\n`;
+      termOut.scrollTop = termOut.scrollHeight;
+      break;
+    }
+
+    case 'file_content':
+      showFileModal(msg.path, msg.content);
+      break;
+
+    case 'workspace_files':
+      const root = document.getElementById('file-tree-root');
+      const fe = document.getElementById('files-empty');
+      if (msg.files && msg.files.length) {
+        if (fe) fe.style.display = 'none';
+        renderFileTree(msg.files, root);
+      } else {
+        if (fe) fe.style.display = '';
+        root.innerHTML = '';
+      }
+      break;
+
+    case 'operator_command_result':
+      addMsg('syscmd', '⬛ CMD: ' + msg.command, msg.output);
+      break;
+
+    case 'health_tick':
+      updateHealthMeters(msg.mem, msg.cpu);
+      break;
+
+    case 'error':
+      sysMsg('⚠ ' + msg.content);
+      setRunning(false); setTyping(false);
+      break;
+  }
+}
+
+// ── HEALTH METERS ─────────────────────────────────────────────────────────────
+function updateHealthMeters(mem, cpu) {
+  if (!mem) return;
+  const rf = document.getElementById('ram-fill');
+  const rp = document.getElementById('ram-pct');
+  const cf = document.getElementById('cpu-fill');
+  const cp = document.getElementById('cpu-pct');
+  if (rf) {
+    rf.style.width = mem.pct + '%';
+    rf.className = 'mfill' + (mem.pct > 90 ? ' crit' : mem.pct > 70 ? ' warn' : '');
+  }
+  if (rp) rp.textContent = mem.pct + '%';
+  if (cf && cpu) {
+    cf.style.width = cpu.loadPct + '%';
+    cf.className = 'mfill' + (cpu.loadPct > 90 ? ' crit' : cpu.loadPct > 70 ? ' warn' : '');
+  }
+  if (cp && cpu) cp.textContent = cpu.load1;
+}
+
+// ── RENDERING ─────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderMarkdown(text) {
+  let h = esc(text);
+  h = h.replace(/\*\*PHASE:\*\*\s*(\w+)/gi, '<span class="phase-tag">$1</span>');
+  h = h.replace(/\*\*THINK:\*\*([^\n]*(?:\n(?!\*\*)[^\n]*)*)/g, (_,b) => `<div class="think"><strong>THINK</strong>${b}</div>`);
+  h = h.replace(/\*\*EXPECT:\*\*([^\n]*(?:\n(?!\*\*)[^\n]*)*)/g, (_,b) => `<div class="expect"><strong>EXPECT:</strong>${b}</div>`);
+  h = h.replace(/^## (.+)$/gm, '<div class="h2">$1</div>');
+  h = h.replace(/```[\w]*\n([\s\S]*?)```/g, (_, code) => `<pre><code>${code.trimEnd()}</code></pre>`);
+  h = h.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  h = h.replace(/\n/g, '<br>');
+  return h;
+}
+
+function addMsg(role, header, body) {
+  const log = document.getElementById('panel-log');
+  const empty = document.getElementById('empty-state');
+  if (empty) empty.remove();
+  const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = `<div class="msg-hd"><span>${esc(header)}</span><span style="color:var(--t3);font-size:8px">${ts}</span></div><div class="msg-body">${renderMarkdown(body || '')}</div>`;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+  return div;
+}
+
+function renderAiMsg(content) {
+  const isFinding = content.includes('🚨 FINDING:');
+  const div = document.createElement('div');
+  div.className = 'msg ai' + (isFinding ? ' finding' : '');
+  const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
+  const log = document.getElementById('panel-log');
+  const empty = document.getElementById('empty-state');
+  if (empty) empty.remove();
+  div.innerHTML = `<div class="msg-hd"><span>0x-HUNT</span><span style="color:var(--t3);font-size:8px">${ts}</span></div><div class="msg-body">${renderMarkdown(content)}</div>`;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function renderUserMsg(content) {
+  const div = document.createElement('div');
+  div.className = 'msg user';
+  const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
+  const log = document.getElementById('panel-log');
+  const empty = document.getElementById('empty-state');
+  if (empty) empty.remove();
+  div.innerHTML = `<div class="msg-hd"><span>OPERATOR</span><span style="color:var(--t3);font-size:8px">${ts}</span></div><div class="msg-body">${renderMarkdown(content)}</div>`;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function sysMsg(text) { addMsg('sys', 'SYSTEM', text); }
+
+const execCards2 = new Map();
+function addExecCard(cmd) {
+  const log = document.getElementById('panel-log');
+  const empty = document.getElementById('empty-state');
+  if (empty) empty.remove();
+  const div = document.createElement('div');
+  div.className = 'exec-card exec-running';
+  const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
+  div.innerHTML = `<div class="exec-hd"><span style="color:var(--c)">▶ EXEC</span><span style="color:var(--t3);font-size:8px">${ts}</span></div><div class="exec-cmd">${esc(cmd)}</div><div class="exec-out" style="color:var(--t3);font-style:italic">running...</div>`;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+  execCards.set(cmd, div);
+}
+
+function updateExecCard(cmd, result) {
+  const card = execCards.get(cmd);
+  if (!card) return;
+  card.classList.remove('exec-running');
+  card.classList.add(result.exitCode === 0 ? 'ok' : 'fail');
+  const outEl = card.querySelector('.exec-out');
+  const txt = [result.stdout?.trim(), result.stderr ? 'STDERR: '+result.stderr : ''].filter(Boolean).join('\n') || '(no output)';
+  outEl.textContent = txt;
+  outEl.style.fontStyle = '';
+  document.getElementById('panel-log').scrollTop = 999999;
+  execCards.delete(cmd);
+}
+
+function appendFindingCard(text) {
+  const panel = document.getElementById('panel-findings');
+  const empty = document.getElementById('findings-empty');
+  if (empty) empty.style.display = 'none';
+  let type = 'UNKNOWN', severity = '';
+  text.split('\n').forEach(l => {
+    if (l.includes('- Type:')) type = l.split('- Type:')[1]?.trim() || type;
+    if (l.includes('- Severity:')) severity = l.split('- Severity:')[1]?.trim() || severity;
+  });
+  const sc = {Critical:'sev-critical',High:'sev-high',Medium:'sev-medium',Low:'sev-low',Informational:'sev-informational'}[severity] || 'sev-low';
+  const card = document.createElement('div');
+  card.className = 'fcard';
+  card.innerHTML = `<div class="fcard-type">🚨 ${esc(type)} <span class="fcard-sev ${sc}">${esc(severity)||'?'}</span></div><div class="fcard-detail">${esc(text.replace('🚨 FINDING:','').trim())}</div>`;
+  panel.appendChild(card);
+}
+
+// ── HUD ───────────────────────────────────────────────────────────────────────
+function updateStats() {
+  setText('stat-cmds', statCmds);
+  setText('stat-findings', statFindings);
+  setText('stat-iter', statIter);
+}
+function resetStats() { statCmds = statFindings = statIter = findingsBadge = 0; updateStats(); updateBadge(); }
+function setPhase(p) { setText('stat-phase', (p||'—').toUpperCase().slice(0,6)); }
+function updateTarget(t) { setText('hud-target', t || 'NO TARGET'); }
+function setText(id, t) { const el = document.getElementById(id); if (el) el.textContent = t; }
+function updateBadge() {
+  const b = document.getElementById('badge-findings');
+  if (!b) return;
+  if (findingsBadge > 0) { b.textContent = findingsBadge; b.classList.add('show'); }
+  else b.classList.remove('show');
+}
+function setPill(text, cls) {
+  const el = document.getElementById('agent-pill');
+  if (el) { el.textContent = text; el.className = cls; }
+  setText('d-agent-lbl', text);
+}
+function setRunning(v) {
+  agentRunning = v;
+  setPill(v ? '⚡ HUNTING' : 'IDLE', v ? 'running' : '');
+  setTyping(v);
+  const sb = document.getElementById('send-btn'), cb = document.getElementById('cont-btn');
+  if (sb) sb.disabled = v;
+  if (cb) cb.disabled = v;
+  if (v) showStop(true);
+}
+function showStop(v) {
+  const s = document.getElementById('stop-btn'), d = document.getElementById('drw-stop-btn');
+  if (s) s.style.display = v ? '' : 'none';
+  if (d) d.style.display = v ? '' : 'none';
+}
+function setTyping(v) { document.getElementById('typing-ind').classList.toggle('show', v); }
+
+function clearLog() {
+  document.getElementById('panel-log').innerHTML = '';
+  document.getElementById('panel-findings').innerHTML = '<div class="no-data" id="findings-empty">NO FINDINGS YET</div>';
+  document.getElementById('file-tree-root').innerHTML = '';
+  const fe = document.getElementById('files-empty'); if (fe) fe.style.display = '';
+  document.getElementById('needs-input-banner').classList.remove('show');
+  execCards.clear();
+}
+
+// ── TAB SWITCHING ─────────────────────────────────────────────────────────────
+// Maps tab name → panel id
+const TAB_PANELS = { log: 'panel-log', findings: 'panel-findings', terminal: 'panel-terminal', files: 'panel-files' };
+
+function switchTab(name) {
+  currentTab = name;
+
+  // Update tab buttons
+  document.querySelectorAll('.tb').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === name);
+  });
+
+  // Show/hide panels — terminal uses flex, others block
+  Object.entries(TAB_PANELS).forEach(([tabName, panelId]) => {
+    const panel = document.getElementById(panelId);
+    if (!panel) return;
+    if (tabName === name) {
+      panel.classList.add('active');
+    } else {
+      panel.classList.remove('active');
+    }
+  });
+
+  // Clear badge when switching to findings
+  if (name === 'findings') { findingsBadge = 0; updateBadge(); }
+
+  // Refresh file tree when switching to files
+  if (name === 'files') loadFileTree();
+
+  // Focus terminal input when switching to terminal
+  if (name === 'terminal') setTimeout(() => document.getElementById('term-cmd').focus(), 50);
+}
+
+// ── ACTIONS ───────────────────────────────────────────────────────────────────
+function launchHunt() {
+  const target = document.getElementById('new-target').value.trim();
+  const scope  = document.getElementById('new-scope').value.trim();
+  const notes  = document.getElementById('new-notes').value.trim();
+  if (!target) { alert('Enter a target domain'); return; }
+  if (!scope)  { alert('Enter at least one scope line'); return; }
+  if (!groqReady) { closeDrawer(); showGroqModal(); return; }
+  wsSend({ type: 'new_session', target, scope, notes });
+}
+
+// Operator commands that get routed directly to server handler
+const OP_CMDS = ['CHECKRAM','CHECKCPU','CHECKDISK','CHECKNET','CHECKTOOLS','GROQTEST','STATUS','CLEARLOG','HELP'];
+
+function sendMessage() {
+  const inp = document.getElementById('user-input');
+  const msg = inp.value.trim();
+  if (!msg) return;
+  inp.value = ''; inp.style.height = 'auto';
+
+  const upper = msg.toUpperCase();
+
+  // Route operator system commands
+  if (OP_CMDS.includes(upper)) {
+    renderUserMsg(msg);
+    wsSend({ type: 'operator_command', command: msg });
+    switchTab('log');
+    return;
+  }
+
+  // Route to agent
+  if (!activeSessionId) {
+    sysMsg('No active session. Launch a hunt first, or type HELP.');
+    return;
+  }
+
+  renderUserMsg(msg);
+  const needsInput = document.getElementById('needs-input-banner').classList.contains('show');
+  document.getElementById('needs-input-banner').classList.remove('show');
+  wsSend({ type: needsInput ? 'operator_input' : 'continue_agent', content: msg, message: msg, sessionId: activeSessionId });
+  setRunning(true);
+  switchTab('log');
+}
+
+function quickSend(text) {
+  if (!activeSessionId || agentRunning) return;
+  document.getElementById('user-input').value = text;
+  sendMessage();
+}
+
+function stopAgent() {
+  if (!activeSessionId) return;
+  wsSend({ type: 'stop_agent', sessionId: activeSessionId });
+}
+
+// ── SESSIONS ──────────────────────────────────────────────────────────────────
+function loadSessions() { wsSend({ type: 'list_sessions' }); }
+
+function renderSessions(sessions) {
+  const wrap = document.getElementById('sess-wrap');
+  setText('sess-count', sessions.length);
+  if (!sessions.length) {
+    wrap.innerHTML = '<div style="font-size:10px;color:var(--t3);text-align:center;padding:16px 0;font-family:var(--ui);font-weight:700">No sessions yet</div>';
+    return;
+  }
+  wrap.innerHTML = sessions.map(s => {
+    const sc = {active:'s-active',paused:'s-paused',error:'s-error',waiting_input:'s-waiting'}[s.status] || '';
+    const upd = s.updated ? new Date(s.updated).toLocaleDateString() : '';
+    return `<div class="si${s.id === activeSessionId ? ' active' : ''}" onclick="resumeSession('${s.id}')">
+      <button class="si-del" onclick="event.stopPropagation();deleteSession('${s.id}')">✕</button>
+      <div class="si-tgt"><span class="ss ${sc}"></span>${esc(s.target)}</div>
+      <div class="si-meta"><span class="si-finds">${s.findingsCount} finds</span><span>${s.messagesCount} msgs</span><span>${upd}</span></div>
+      <div class="si-phase">${(s.phase||'recon').toUpperCase()}</div>
+    </div>`;
+  }).join('');
+}
+
+function resumeSession(id) {
+  if (!groqReady) { showGroqModal(); return; }
+  wsSend({ type: 'resume_session', sessionId: id, autoResume: false });
+}
+
+function deleteSession(id) {
+  if (!confirm('Delete this session?')) return;
+  wsSend({ type: 'delete_session', sessionId: id });
+  if (id === activeSessionId) {
+    activeSessionId = null; clearLog(); updateTarget('NO TARGET');
+    resetStats(); showStop(false);
+    document.getElementById('panel-log').innerHTML = '<div id="empty-state"><div class="logo-big">0x-HUNT</div><p>Session deleted.</p></div>';
+  }
+}
+
+// ── TERMINAL ──────────────────────────────────────────────────────────────────
+document.getElementById('term-cmd').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const cmd = e.target.value.trim();
+  if (!cmd) return;
+
+  if (!activeSessionId) {
+    const termOut = document.getElementById('term-out');
+    termOut.textContent += '$ ' + cmd + '\n[error] No active session — launch a hunt first\n';
+    termOut.scrollTop = termOut.scrollHeight;
+    e.target.value = '';
+    return;
+  }
+
+  const termOut = document.getElementById('term-out');
+  termOut.textContent += '$ ' + cmd + '\n';
+  termOut.scrollTop = termOut.scrollHeight;
+  wsSend({ type: 'run_manual_command', command: cmd, sessionId: activeSessionId });
+  e.target.value = '';
+});
+
+// ── FILE TREE ─────────────────────────────────────────────────────────────────
+function loadFileTree() {
+  if (!activeSessionId) return;
+  wsSend({ type: 'list_workspace', sessionId: activeSessionId });
+}
+
+function fmtSize(n) {
+  if (n < 1024) return n + 'B';
+  if (n < 1048576) return (n/1024).toFixed(1) + 'K';
+  return (n/1048576).toFixed(1) + 'M';
+}
+
+function renderFileTree(items, container, depth) {
+  depth = depth || 0;
+  if (!container) return;
+  container.innerHTML = '';
+  if (!items || !items.length) return;
+  items.forEach(item => {
+    const el = document.createElement('div');
+    el.className = 'ft-item' + (item.type === 'dir' ? ' dir' : '') + (depth ? ' ft-indent' : '');
+    el.innerHTML = (item.type === 'dir' ? '▸ ' : '· ') + esc(item.name) + (item.size !== undefined ? `<span class="fsize">${fmtSize(item.size)}</span>` : '');
+    if (item.type === 'file') {
+      el.onclick = () => wsSend({ type: 'read_file', path: item.path, sessionId: activeSessionId });
+    } else {
+      let open = false;
+      const sub = document.createElement('div');
+      el.onclick = () => {
+        open = !open;
+        sub.style.display = open ? '' : 'none';
+        el.firstChild.textContent = (open ? '▾ ' : '▸ ') + item.name;
+        if (open) renderFileTree(item.children || [], sub, depth + 1);
+      };
+      sub.style.display = 'none';
+      container.appendChild(el);
+      container.appendChild(sub);
+      return;
+    }
+    container.appendChild(el);
+  });
+}
+
+// ── DRAWER ────────────────────────────────────────────────────────────────────
+function toggleDrawer() {
+  const d = document.getElementById('drawer');
+  const o = document.getElementById('overlay');
+  const h = document.getElementById('ham');
+  const open = d.classList.toggle('open');
+  o.classList.toggle('show', open);
+  h.classList.toggle('open', open);
+}
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('ham').classList.remove('open');
+}
+
+// ── MODALS ────────────────────────────────────────────────────────────────────
+function showFileModal(path, content) {
+  setText('file-modal-title', path);
+  document.getElementById('file-modal-content').textContent = content;
+  document.getElementById('file-modal').classList.add('show');
+}
+function closeFileModal() { document.getElementById('file-modal').classList.remove('show'); }
+
+function showGroqModal() {
+  document.getElementById('groq-modal').classList.add('show');
+  setTimeout(() => document.getElementById('groq-key-input').focus(), 100);
+}
+function closeGroqModal() { document.getElementById('groq-modal').classList.remove('show'); }
+
+function saveGroqKey() {
+  const key = document.getElementById('groq-key-input').value.trim();
+  if (!key) return;
+  localStorage.setItem('0xhunt_groq_key', key);
+  document.getElementById('groq-status').textContent = 'Connecting...';
+  document.getElementById('groq-status').style.color = 'var(--t2)';
+  initGroq(key);
+}
+function initGroq(key) { wsSend({ type: 'init_groq', apiKey: key }); }
+
+// ── INPUT ─────────────────────────────────────────────────────────────────────
+document.getElementById('user-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  setTimeout(() => {
+    const el = e.target;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+  }, 0);
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeGroqModal(); closeFileModal(); closeDrawer(); }
+});
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+connectWS();
+setInterval(loadSessions, 20000);
+</script>
+</body>
+</html>

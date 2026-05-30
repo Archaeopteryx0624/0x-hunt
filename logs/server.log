@@ -1,0 +1,170 @@
+[2026-03-14T08:11:07.058Z] [INFO] [SERVER] Started on port 3000 {"pid":6592,"arch":"arm64"}
+[2026-03-14T08:11:55.396Z] [INFO] [WS] Client connected {"total":1}
+[2026-03-14T08:11:55.493Z] [INFO] [GROQ] Attempting connection...
+[2026-03-14T08:11:55.501Z] [INFO] [GROQ] Testing connection {"vpnDetected":true,"interfaces":["tun0","rmnet0"]}
+[2026-03-14T08:11:58.776Z] [WARN] [GROQ] Attempt 1 failed: 403 {"error":{"message":"Access denied. Please check your network settings."}}
+[2026-03-14T08:12:01.195Z] [WARN] [GROQ] Attempt 2 failed: 403 {"error":{"message":"Access denied. Please check your network settings."}}
+[2026-03-14T08:12:04.816Z] [INFO] [GROQ] Attempting connection...
+[2026-03-14T08:12:04.823Z] [INFO] [GROQ] Testing connection {"vpnDetected":true,"interfaces":["tun0","rmnet0"]}
+[2026-03-14T08:12:05.105Z] [WARN] [GROQ] Attempt 1 failed: 403 {"error":{"message":"Access denied. Please check your network settings."}}
+[2026-03-14T08:12:05.505Z] [WARN] [GROQ] Attempt 3 failed: 403 {"error":{"message":"Access denied. Please check your network settings."}}
+[2026-03-14T08:12:05.509Z] [ERROR] [GROQ] Connection failed after retries
+[2026-03-14T08:12:07.532Z] [WARN] [GROQ] Attempt 2 failed: 403 {"error":{"message":"Access denied. Please check your network settings."}}
+[2026-03-14T08:12:09.795Z] [INFO] [GROQ] Attempting connection...
+[2026-03-14T08:12:09.803Z] [INFO] [GROQ] Testing connection {"vpnDetected":true,"interfaces":["tun0","rmnet0"]}
+[2026-03-14T08:12:10.140Z] [WARN] [GROQ] Attempt 1 failed: 403 {"error":{"message":"Access denied. Please check your network settings."}}
+[2026-03-14T08:12:11.825Z] [WARN] [GROQ] Attempt 3 failed: 403 {"error":{"message":"Access denied. Please check your network settings."}}
+[2026-03-14T08:12:11.829Z] [ERROR] [GROQ] Connection failed after retries
+[2026-03-14T08:12:12.449Z] [WARN] [GROQ] Attempt 2 failed: 403 {"error":{"message":"Access denied. Please check your network settings."}}
+[2026-03-14T08:12:17.455Z] [WARN] [GROQ] Attempt 3 failed: 403 {"error":{"message":"Access denied. Please check your network settings."}}
+[2026-03-14T08:12:17.457Z] [ERROR] [GROQ] Connection failed after retries
+[2026-03-14T08:12:21.979Z] [INFO] [WS] Client disconnected {"remaining":0}
+[2026-03-14T08:12:24.257Z] [INFO] [WS] Client connected {"total":1}
+[2026-03-14T08:12:24.434Z] [INFO] [GROQ] Attempting connection...
+[2026-03-14T08:12:24.439Z] [INFO] [GROQ] Testing connection {"vpnDetected":true,"interfaces":["tun0","rmnet0"]}
+[2026-03-14T08:12:25.664Z] [WARN] [GROQ] Attempt 1 failed: 403 {"error":{"message":"Access denied. Please check your network settings."}}
+[2026-03-14T08:12:28.031Z] [WARN] [GROQ] Attempt 2 failed: 403 {"error":{"message":"Access denied. Please check your network settings."}}
+[2026-03-14T08:12:45.320Z] [WARN] [GROQ] Attempt 3 failed: 403 {"error":{"message":"Access denied. Please check your network settings."}}
+[2026-03-14T08:12:45.324Z] [ERROR] [GROQ] Connection failed after retries
+[2026-03-14T08:23:24.918Z] [INFO] [WS] Client disconnected {"remaining":0}
+[2026-03-14T08:23:33.777Z] [INFO] [WS] Client connected {"total":1}
+[2026-03-14T08:30:07.383Z] [INFO] [WS] Client disconnected {"remaining":0}
+[2026-03-15T06:29:26.334Z] [INFO] [SERVER] Started on port 3000 {"pid":3555,"arch":"arm64"}
+[2026-03-15T06:29:41.910Z] [INFO] [WS] Client connected {"total":1}
+[2026-03-15T06:29:41.986Z] [INFO] [GROQ] Attempting connection...
+[2026-03-15T06:29:41.992Z] [WARN] [GROQ] No network interfaces found — possible connectivity issue
+[2026-03-15T06:29:41.996Z] [INFO] [GROQ] Testing connection {"vpnDetected":false,"interfaces":[]}
+[2026-03-15T06:29:44.227Z] [WARN] [GROQ] Attempt 1 failed: Connection error.
+[2026-03-15T06:29:47.590Z] [WARN] [GROQ] Attempt 2 failed: Connection error.
+[2026-03-15T06:29:54.082Z] [INFO] [GROQ] Connected on attempt 3
+[2026-03-15T06:29:54.086Z] [INFO] [GROQ] Ready {"attempt":3}
+[2026-03-15T06:30:28.478Z] [DEBUG] [AGENT] Calling Groq {"iteration":16,"msgs":34}
+[2026-03-15T06:30:34.369Z] [INFO] [AGENT] Turn 17 complete {"phase":"scan","chars":682}
+[2026-03-15T06:30:34.392Z] [DEBUG] [EXEC] Running command {"cmd":"dirb http://example.com","sid":"8c5a6673"}
+[2026-03-15T06:30:36.570Z] [DEBUG] [EXEC] Command finished {"exitCode":127,"outLen":0}
+[2026-03-15T06:30:37.288Z] [DEBUG] [AGENT] Calling Groq {"iteration":17,"msgs":36}
+[2026-03-15T06:30:53.297Z] [INFO] [AGENT] Turn 18 complete {"phase":"fuzz","chars":667}
+[2026-03-15T06:30:53.328Z] [DEBUG] [EXEC] Running command {"cmd":"gobuster dir -u http://example.com","sid":"8c5a6673"}
+[2026-03-15T06:30:54.495Z] [DEBUG] [EXEC] Command finished {"exitCode":1,"outLen":5354}
+[2026-03-15T06:30:55.121Z] [DEBUG] [AGENT] Calling Groq {"iteration":18,"msgs":38}
+[2026-03-15T06:31:40.793Z] [INFO] [AGENT] Turn 19 complete {"phase":"fuzz","chars":724}
+[2026-03-15T06:31:40.854Z] [DEBUG] [EXEC] Running command {"cmd":"gobuster dir -u http://example.com -w /usr/share/wordlists/dirb/common.txt","sid":"8c5a6673"}
+[2026-03-15T06:31:41.194Z] [DEBUG] [EXEC] Command finished {"exitCode":1,"outLen":82}
+[2026-03-15T06:31:41.853Z] [DEBUG] [AGENT] Calling Groq {"iteration":19,"msgs":40}
+[2026-03-15T06:32:26.523Z] [INFO] [SESSION] New hunt launched {"target":"localhost:8080","id":"7eef34d2"}
+[2026-03-15T06:32:26.525Z] [DEBUG] [AGENT] Calling Groq {"iteration":0,"msgs":1}
+[2026-03-15T06:32:27.113Z] [INFO] [AGENT] Turn 20 complete {"phase":"fuzz","chars":643}
+[2026-03-15T06:32:27.116Z] [DEBUG] [EXEC] Running command {"cmd":"wfuzz -c -w /usr/share/wordlists/wfuzz/general/big.txt http://example.com/FUZZ","sid":"8c5a6673"}
+[2026-03-15T06:32:27.295Z] [DEBUG] [EXEC] Command finished {"exitCode":127,"outLen":0}
+[2026-03-15T06:32:27.916Z] [DEBUG] [AGENT] Calling Groq {"iteration":20,"msgs":42}
+[2026-03-15T06:32:30.619Z] [INFO] [AGENT] Turn 1 complete {"phase":"recon","chars":885}
+[2026-03-15T06:32:30.659Z] [DEBUG] [EXEC] Running command {"cmd":"whois localhost | tee whois_output.txt","sid":"7eef34d2"}
+[2026-03-15T06:32:31.000Z] [DEBUG] [EXEC] Command finished {"exitCode":0,"outLen":0}
+[2026-03-15T06:32:31.610Z] [DEBUG] [AGENT] Calling Groq {"iteration":1,"msgs":3}
+[2026-03-15T06:32:36.000Z] [INFO] [AGENT] Turn 2 complete {"phase":"recon","chars":811}
+[2026-03-15T06:32:36.004Z] [DEBUG] [EXEC] Running command {"cmd":"waybackurls http://localhost:8080 | tee waybackurls_output.txt","sid":"7eef34d2"}
+[2026-03-15T06:32:47.304Z] [DEBUG] [EXEC] Command finished {"exitCode":0,"outLen":0}
+[2026-03-15T06:32:47.910Z] [DEBUG] [AGENT] Calling Groq {"iteration":2,"msgs":5}
+[2026-03-15T06:32:49.613Z] [INFO] [AGENT] Turn 3 complete {"phase":"recon","chars":905}
+[2026-03-15T06:32:49.616Z] [DEBUG] [EXEC] Running command {"cmd":"gau http://localhost:8080 | tee gau_output.txt","sid":"7eef34d2"}
+[2026-03-15T06:32:49.680Z] [DEBUG] [EXEC] Command finished {"exitCode":0,"outLen":0}
+[2026-03-15T06:32:50.286Z] [DEBUG] [AGENT] Calling Groq {"iteration":3,"msgs":7}
+[2026-03-15T06:32:51.624Z] [INFO] [AGENT] Turn 4 complete {"phase":"recon","chars":982}
+[2026-03-15T06:32:51.628Z] [DEBUG] [EXEC] Running command {"cmd":"httpx -title -status -tech-detect http://localhost:8080 | tee httpx_output.txt","sid":"7eef34d2"}
+[2026-03-15T06:32:52.545Z] [DEBUG] [EXEC] Command finished {"exitCode":0,"outLen":39}
+[2026-03-15T06:32:53.152Z] [DEBUG] [AGENT] Calling Groq {"iteration":4,"msgs":9}
+[2026-03-15T06:33:02.253Z] [INFO] [AGENT] Turn 5 complete {"phase":"recon","chars":623}
+[2026-03-15T06:33:02.258Z] [DEBUG] [EXEC] Running command {"cmd":"httpx -title -tech-detect http://localhost:8080 | tee httpx_output.txt","sid":"7eef34d2"}
+[2026-03-15T06:33:55.069Z] [INFO] [AGENT] Turn 21 complete {"phase":"fuzz","chars":1124}
+[2026-03-15T06:33:55.200Z] [INFO] [AGENT] Phase complete {"phase":"fuzz"}
+[2026-03-15T06:33:55.214Z] [DEBUG] [EXEC] Running command {"cmd":"dalfox url http://example.com","sid":"8c5a6673"}
+[2026-03-15T06:33:55.408Z] [DEBUG] [EXEC] Command finished {"exitCode":127,"outLen":0}
+[2026-03-15T06:33:56.099Z] [DEBUG] [AGENT] Calling Groq {"iteration":21,"msgs":44}
+[2026-03-15T06:34:43.428Z] [INFO] [AGENT] Turn 22 complete {"phase":"fuzz","chars":599}
+[2026-03-15T06:34:43.562Z] [DEBUG] [EXEC] Running command {"cmd":"curl -s -X GET \"http://example.com/?param=<script>alert('XSS')</script>\" | grep \"alert('XSS')\"","sid":"8c5a6673"}
+[2026-03-15T06:34:44.768Z] [DEBUG] [EXEC] Command finished {"exitCode":1,"outLen":0}
+[2026-03-15T06:34:45.398Z] [DEBUG] [AGENT] Calling Groq {"iteration":22,"msgs":46}
+[2026-03-15T06:35:02.311Z] [WARN] [EXEC] Command timed out {"cmd":"httpx -title -tech-detect http://localhost:8080 | tee httpx_"}
+[2026-03-15T06:35:02.314Z] [DEBUG] [EXEC] Command finished {"exitCode":124,"outLen":0}
+[2026-03-15T06:35:02.921Z] [DEBUG] [AGENT] Calling Groq {"iteration":5,"msgs":11}
+[2026-03-15T06:35:04.481Z] [INFO] [AGENT] Turn 6 complete {"phase":"recon","chars":756}
+[2026-03-15T06:35:04.484Z] [DEBUG] [EXEC] Running command {"cmd":"curl -I http://localhost:8080 | tee curl_output.txt","sid":"7eef34d2"}
+[2026-03-15T06:35:04.691Z] [DEBUG] [EXEC] Command finished {"exitCode":0,"outLen":189}
+[2026-03-15T06:35:05.299Z] [DEBUG] [AGENT] Calling Groq {"iteration":6,"msgs":13}
+[2026-03-15T06:35:06.396Z] [INFO] [AGENT] Turn 7 complete {"phase":"recon","chars":808}
+[2026-03-15T06:35:06.403Z] [DEBUG] [EXEC] Running command {"cmd":"nmap -p 8080 localhost | tee nmap_output.txt","sid":"7eef34d2"}
+[2026-03-15T06:35:06.895Z] [DEBUG] [EXEC] Command finished {"exitCode":0,"outLen":300}
+[2026-03-15T06:35:07.503Z] [DEBUG] [AGENT] Calling Groq {"iteration":7,"msgs":15}
+[2026-03-15T06:35:20.231Z] [INFO] [AGENT] Turn 8 complete {"phase":"recon","chars":867}
+[2026-03-15T06:35:20.236Z] [DEBUG] [EXEC] Running command {"cmd":"whatweb http://localhost:8080 | tee whatweb_output.txt","sid":"7eef34d2"}
+[2026-03-15T06:35:43.897Z] [DEBUG] [EXEC] Command finished {"exitCode":0,"outLen":436}
+[2026-03-15T06:35:44.508Z] [DEBUG] [AGENT] Calling Groq {"iteration":8,"msgs":17}
+[2026-03-15T06:35:46.808Z] [INFO] [AGENT] Turn 9 complete {"phase":"enumerate","chars":946}
+[2026-03-15T06:35:46.811Z] [DEBUG] [EXEC] Running command {"cmd":"nikto -h http://localhost:8080 | tee nikto_output.txt","sid":"7eef34d2"}
+[2026-03-15T06:35:46.935Z] [DEBUG] [EXEC] Command finished {"exitCode":0,"outLen":0}
+[2026-03-15T06:35:47.544Z] [DEBUG] [AGENT] Calling Groq {"iteration":9,"msgs":19}
+[2026-03-15T06:35:55.519Z] [INFO] [AGENT] Turn 10 complete {"phase":"enumerate","chars":779}
+[2026-03-15T06:35:55.521Z] [DEBUG] [EXEC] Running command {"cmd":"dirb http://localhost:8080 | tee dirb_output.txt","sid":"7eef34d2"}
+[2026-03-15T06:35:55.626Z] [DEBUG] [EXEC] Command finished {"exitCode":0,"outLen":0}
+[2026-03-15T06:35:56.234Z] [DEBUG] [AGENT] Calling Groq {"iteration":10,"msgs":21}
+[2026-03-15T06:36:11.002Z] [ERROR] [AGENT] Groq API error: 429 {"error":{"message":"Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01ken9ee9deanvmk4j1xafbagf` service tier `on_demand` on tokens per minute (TPM): Limit 12000, Used 8714, Requested 10014. Please try again in 33.64s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing","type":"tokens","code":"rate_limit_exceeded"}}
+[2026-03-15T06:36:14.987Z] [INFO] [AGENT] Turn 11 complete {"phase":"enumerate","chars":962}
+[2026-03-15T06:36:14.990Z] [DEBUG] [EXEC] Running command {"cmd":"ffuf -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -u http://localhost:8080/FUZZ | tee ffuf_output.txt","sid":"7eef34d2"}
+[2026-03-15T06:36:15.290Z] [DEBUG] [EXEC] Command finished {"exitCode":0,"outLen":6712}
+[2026-03-15T06:36:15.902Z] [DEBUG] [AGENT] Calling Groq {"iteration":11,"msgs":23}
+[2026-03-15T06:36:36.118Z] [INFO] [WS] Client disconnected {"remaining":0}
+[2026-03-15T06:36:45.481Z] [INFO] [AGENT] Turn 12 complete {"phase":"enumerate","chars":875}
+[2026-03-15T06:36:45.483Z] [DEBUG] [EXEC] Running command {"cmd":"ffuf -w /usr/share/seclists/Discovery/Web-Content/common.txt -u http://localhost:8080/FUZZ | tee ffuf_output.txt","sid":"7eef34d2"}
+[2026-03-15T06:36:45.608Z] [DEBUG] [EXEC] Command finished {"exitCode":0,"outLen":6712}
+[2026-03-15T06:36:46.220Z] [DEBUG] [AGENT] Calling Groq {"iteration":12,"msgs":25}
+[2026-03-15T06:37:02.395Z] [INFO] [WS] Client connected {"total":1}
+[2026-03-15T06:37:02.492Z] [INFO] [GROQ] Attempting connection...
+[2026-03-15T06:37:02.528Z] [INFO] [GROQ] Testing connection {"vpnDetected":false,"interfaces":["rmnet0"]}
+[2026-03-15T06:37:03.775Z] [INFO] [GROQ] Connected on attempt 1
+[2026-03-15T06:37:03.777Z] [INFO] [GROQ] Ready {"attempt":1}
+[2026-03-15T06:37:25.847Z] [INFO] [AGENT] Turn 13 complete {"phase":"enumerate","chars":1642}
+[2026-03-15T06:37:25.848Z] [DEBUG] [EXEC] Running command {"cmd":"ffuf -w /usr/share/wordlists/dirb/common.txt -u http://localhost:8080/FUZZ | tee ffuf_output.txt","sid":"7eef34d2"}
+[2026-03-15T06:37:25.939Z] [DEBUG] [EXEC] Command finished {"exitCode":0,"outLen":6712}
+[2026-03-15T06:37:26.552Z] [DEBUG] [AGENT] Calling Groq {"iteration":13,"msgs":27}
+[2026-03-15T06:37:27.038Z] [ERROR] [AGENT] Groq API error: 429 {"error":{"message":"Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01ken9ee9deanvmk4j1xafbagf` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 93622, Requested 9715. Please try again in 48m3.167999999s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing","type":"tokens","code":"rate_limit_exceeded"}}
+[2026-03-15T06:40:54.908Z] [INFO] [WS] Client disconnected {"remaining":0}
+[2026-03-15T06:40:55.043Z] [INFO] [WS] Client connected {"total":1}
+[2026-03-15T06:40:55.174Z] [INFO] [GROQ] Attempting connection...
+[2026-03-15T06:40:55.184Z] [INFO] [GROQ] Testing connection {"vpnDetected":false,"interfaces":["rmnet0"]}
+[2026-03-15T06:40:56.339Z] [INFO] [GROQ] Connected on attempt 1
+[2026-03-15T06:40:56.341Z] [INFO] [GROQ] Ready {"attempt":1}
+[2026-03-15T06:43:00.282Z] [INFO] [WS] Client disconnected {"remaining":0}
+[2026-03-15T06:43:03.056Z] [INFO] [WS] Client connected {"total":1}
+[2026-03-15T06:43:03.146Z] [INFO] [GROQ] Attempting connection...
+[2026-03-15T06:43:03.158Z] [INFO] [GROQ] Testing connection {"vpnDetected":false,"interfaces":["rmnet0"]}
+[2026-03-15T06:43:04.617Z] [INFO] [GROQ] Connected on attempt 1
+[2026-03-15T06:43:04.619Z] [INFO] [GROQ] Ready {"attempt":1}
+[2026-03-15T06:43:37.546Z] [DEBUG] [AGENT] Calling Groq {"iteration":22,"msgs":47}
+[2026-03-15T06:43:40.139Z] [ERROR] [AGENT] Groq API error: 429 {"error":{"message":"Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01ken9ee9deanvmk4j1xafbagf` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 93269, Requested 10020. Please try again in 47m21.696s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing","type":"tokens","code":"rate_limit_exceeded"}}
+[2026-03-15T06:45:06.155Z] [INFO] [SERVER] Started on port 3000 {"pid":11451,"arch":"arm64"}
+[2026-03-15T06:45:08.482Z] [INFO] [WS] Client connected {"total":1}
+[2026-03-15T06:45:08.495Z] [INFO] [GROQ] Attempting connection...
+[2026-03-15T06:45:08.502Z] [INFO] [GROQ] Testing connection {"vpnDetected":false,"interfaces":["rmnet0"]}
+[2026-03-15T06:45:10.050Z] [INFO] [GROQ] Connected on attempt 1
+[2026-03-15T06:45:10.052Z] [INFO] [GROQ] Ready {"attempt":1}
+[2026-03-15T06:45:18.231Z] [INFO] [WS] Client disconnected {"remaining":0}
+[2026-03-15T06:45:18.318Z] [INFO] [WS] Client connected {"total":1}
+[2026-03-15T06:45:18.361Z] [INFO] [GROQ] Attempting connection...
+[2026-03-15T06:45:18.368Z] [INFO] [GROQ] Testing connection {"vpnDetected":false,"interfaces":["rmnet0"]}
+[2026-03-15T06:45:19.517Z] [INFO] [GROQ] Connected on attempt 1
+[2026-03-15T06:45:19.520Z] [INFO] [GROQ] Ready {"attempt":1}
+[2026-03-15T06:46:30.261Z] [INFO] [WS] Client disconnected {"remaining":0}
+[2026-03-15T06:46:30.355Z] [INFO] [WS] Client connected {"total":1}
+[2026-03-15T06:46:30.403Z] [INFO] [GROQ] Attempting connection...
+[2026-03-15T06:46:30.409Z] [INFO] [GROQ] Testing connection {"vpnDetected":false,"interfaces":["rmnet0"]}
+[2026-03-15T06:46:31.700Z] [INFO] [GROQ] Connected on attempt 1
+[2026-03-15T06:46:31.703Z] [INFO] [GROQ] Ready {"attempt":1}
+[2026-03-15T07:25:16.042Z] [INFO] [WS] Client disconnected {"remaining":0}
+[2026-05-02T09:30:15.324Z] [INFO] [SERVER] Started on port 3000 {"pid":9665,"arch":"arm64"}
+[2026-05-02T09:30:22.992Z] [INFO] [WS] Client connected {"total":1}
+[2026-05-02T09:32:22.458Z] [INFO] [GROQ] Attempting connection...
+[2026-05-02T09:32:22.466Z] [INFO] [GROQ] Testing connection {"vpnDetected":false,"interfaces":["wlan0"]}
+[2026-05-02T09:32:24.038Z] [WARN] [GROQ] Attempt 1 failed: Connection error.
+[2026-05-02T09:32:27.500Z] [WARN] [GROQ] Attempt 2 failed: Connection error.
+[2026-05-02T09:32:33.124Z] [WARN] [GROQ] Attempt 3 failed: Connection error.
+[2026-05-02T09:32:33.130Z] [ERROR] [GROQ] Connection failed after retries
