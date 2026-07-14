@@ -1,317 +1,1445 @@
-﻿#!/usr/bin/env node
-// ─────────────────────────────────────────────────────────────────────────────
-//  0x-HUNT  v2  — Autonomous Bug Bounty Hunter  (pure terminal / Termux)
-// ─────────────────────────────────────────────────────────────────────────────
-import {
-  readFileSync, writeFileSync, existsSync, mkdirSync,
-  readdirSync, appendFileSync, unlinkSync, statSync,
-} from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+#!/usr/bin/env node
+// hunt.js - Node.js implementation (reference)
+
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync, appendFileSync, unlinkSync } from 'fs';
+import { resolve, dirname, join } from 'path';
+import { randomUUID } from 'crypto';
+import { spawn } from 'child_process';
 import { createInterface } from 'readline';
-import { spawn, execSync } from 'child_process';
-import os from 'os';
-import { v4 as uuidv4 } from 'uuid';
 import Groq from 'groq-sdk';
+import { fileURLToPath } from 'url';
+import os from 'os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// ── Dirs ──────────────────────────────────────────────────────────────────────
-const SESSIONS_DIR  = join(__dirname, 'sessions');
-const LOGS_DIR      = join(__dirname, 'logs');
-const WORKSPACE_DIR = join(__dirname, 'workspace');
-for (const d of [SESSIONS_DIR, LOGS_DIR, WORKSPACE_DIR])
-  if (!existsSync(d)) mkdirSync(d, { recursive: true });
+// ============================================================
+// 1. Constants & Config
+// ============================================================
+const VERSION = '2.0.0';
+const SESSION_DIR = resolve(__dirname, 'sessions');
+const LOG_DIR = resolve(__dirname, 'logs');
+const WORKSPACE_DIR = resolve(__dirname, 'workspace');
+const KEY_FILE = resolve(__dirname, '.groq_key');
+const MAX_MESSAGES = 200;
+const CONTEXT_WINDOW = 60;
+const MAX_ITERATIONS = 150;
+const AGENT_TIMEOUT = 120000;
+const SHELL_TIMEOUT = 300000;
+const STDOUT_CAP = 20000;
+const STDERR_CAP = 4000;
+const INTER_TURN_SLEEP = 600;
 
-// ── ANSI helpers ──────────────────────────────────────────────────────────────
-const A = {
-  reset  : '\x1b[0m',
-  bold   : '\x1b[1m',
-  dim    : '\x1b[2m',
-  black  : '\x1b[30m',
-  red    : '\x1b[31m',
-  green  : '\x1b[32m',
-  yellow : '\x1b[33m',
-  blue   : '\x1b[34m',
+const BLOCKED_COMMANDS = [
+  /rm\s+-rf\s+\/(?!\w)/,
+  /:\(\)\{.*\}/,
+  /mkfs/,
+  /shutdown\b/,
+  /reboot\b/,
+  /\bpoweroff\b/
+];
+
+const TOOLS = [
+  'subfinder', 'assetfinder', 'waybackurls', 'gau', 'katana',
+  'hakrawler', 'dig', 'whois', 'nmap', 'httpx', 'nuclei',
+  'nikto', 'whatweb', 'ffuf', 'gobuster', 'arjun', 'dalfox',
+  'sqlmap', 'gf', 'qsreplace', 'curl', 'wget', 'python3',
+  'jq', 'git', 'go'
+];
+
+const COLORS = {
+  reset: '\x1b[0m',
+  bold: '\x1b[1m',
+  dim: '\x1b[2m',
+  
+  black: '\x1b[30m',
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
   magenta: '\x1b[35m',
-  cyan   : '\x1b[36m',
-  white  : '\x1b[37m',
-  gray   : '\x1b[90m',
-  bred   : '\x1b[91m',
-  bgreen : '\x1b[92m',
-  byellow: '\x1b[93m',
-  bblue  : '\x1b[94m',
-  bmagenta:'\x1b[95m',
-  bcyan  : '\x1b[96m',
-  bwhite : '\x1b[97m',
-  bgblack: '\x1b[40m',
-  bgred  : '\x1b[41m',
-  bggreen: '\x1b[42m',
-  bgyellow:'\x1b[43m',
-  bgblue : '\x1b[44m',
-  bgmagenta:'\x1b[45m',
-  bgcyan : '\x1b[46m',
-  bgwhite: '\x1b[47m',
-  clear  : '\x1b[2J\x1b[H',
-  clearln: '\x1b[2K\r',
-  up     : (n=1) => `\x1b[${n}A`,
-  col    : (n=1) => `\x1b[${n}G`,
-  hide   : '\x1b[?25l',
-  show   : '\x1b[?25h',
-  save   : '\x1b[s',
-  restore: '\x1b[u',
+  cyan: '\x1b[36m',
+  white: '\x1b[37m',
+  
+  brightBlack: '\x1b[90m',
+  brightRed: '\x1b[91m',
+  brightGreen: '\x1b[92m',
+  brightYellow: '\x1b[93m',
+  brightBlue: '\x1b[94m',
+  brightMagenta: '\x1b[95m',
+  brightCyan: '\x1b[96m',
+  brightWhite: '\x1b[97m',
+  
+  bgRed: '\x1b[41m',
+  bgGreen: '\x1b[42m',
+  bgYellow: '\x1b[43m',
+  bgBlue: '\x1b[44m',
+  bgMagenta: '\x1b[45m',
+  bgCyan: '\x1b[46m',
 };
 
-const W = () => process.stdout.columns  || 80;
-const H = () => process.stdout.rows     || 24;
+const SEVERITY_COLORS = {
+  'critical': `${COLORS.brightRed}${COLORS.bold}`,
+  'high': COLORS.brightRed,
+  'medium': COLORS.brightYellow,
+  'low': COLORS.brightGreen,
+  'informational': COLORS.brightCyan,
+};
 
-function c(color, text) { return `${color}${text}${A.reset}`; }
-function bold(text)      { return `${A.bold}${text}${A.reset}`; }
-function dim(text)       { return `${A.dim}${text}${A.reset}`; }
+const SYSTEM_PROMPT = `You are 0x-Hunt, an autonomous bug bounty agent. Your goal is to systematically discover security vulnerabilities within the given scope.
 
-function write(...args)  { process.stdout.write(args.join('')); }
-function writeln(...args){ process.stdout.write(args.join('') + '\n'); }
+**RESPONSE FORMAT - Follow this structure every turn:**
 
-// ── Terminal width helpers ────────────────────────────────────────────────────
-function stripAnsi(s) { return s.replace(/\x1b\[[0-9;]*m/g, ''); }
-function visLen(s)    { return stripAnsi(s).length; }
+**PHASE:** [recon|enumerate|scan|fuzz|exploit|report]
 
-function hr(char = '─', color = A.gray) {
-  return c(color, char.repeat(W()));
-}
-
-function padEnd(s, len) {
-  const vis = visLen(s);
-  return vis < len ? s + ' '.repeat(len - vis) : s;
-}
-
-function truncate(s, len) {
-  const plain = stripAnsi(s);
-  if (plain.length <= len) return s;
-  return plain.slice(0, len - 1) + '…';
-}
-
-function box(title, lines, borderColor = A.cyan) {
-  const w = Math.min(W() - 2, 78);
-  const top    = c(borderColor, '┌─ ') + c(A.bold + A.bcyan, title) + c(borderColor, ' ' + '─'.repeat(Math.max(0, w - title.length - 4)) + '┐');
-  const bottom = c(borderColor, '└' + '─'.repeat(w) + '┘');
-  const rows = lines.map(l => {
-    const plain = stripAnsi(l);
-    const pad = w - 2 - plain.length;
-    return c(borderColor, '│ ') + l + ' '.repeat(Math.max(0, pad)) + c(borderColor, ' │');
-  });
-  return [top, ...rows, bottom].join('\n');
-}
-
-// ── System metrics ────────────────────────────────────────────────────────────
-function getMemInfo() {
-  try {
-    const raw     = readFileSync('/proc/meminfo', 'utf8');
-    const parse   = key => { const m = raw.match(new RegExp(`${key}:\\s+(\\d+)`)); return m ? parseInt(m[1]) * 1024 : 0; };
-    const total   = parse('MemTotal');
-    const avail   = parse('MemAvailable');
-    const used    = total - avail;
-    return { total, used, avail, pct: total ? Math.round(used/total*100) : 0 };
-  } catch {
-    const t = os.totalmem(), f = os.freemem();
-    return { total: t, used: t-f, avail: f, pct: Math.round((t-f)/t*100) };
-  }
-}
-
-function getCpuLoad() {
-  try { const l = os.loadavg(); return { load1: l[0].toFixed(2), load5: l[1].toFixed(2), cores: os.cpus().length }; }
-  catch { return { load1: '?', load5: '?', cores: 1 }; }
-}
-
-function fmtBytes(b) {
-  if (!b) return '0B';
-  if (b < 1024)       return b + 'B';
-  if (b < 1048576)    return (b/1024).toFixed(0) + 'K';
-  if (b < 1073741824) return (b/1048576).toFixed(1) + 'M';
-  return (b/1073741824).toFixed(2) + 'G';
-}
-
-function memBar(pct, width = 20) {
-  const filled = Math.round(pct / 100 * width);
-  const color  = pct > 90 ? A.bred : pct > 70 ? A.byellow : A.bgreen;
-  return c(color, '█'.repeat(filled)) + c(A.gray, '░'.repeat(width - filled));
-}
-
-function getDiskInfo() {
-  try {
-    const out   = execSync('df -B1 . 2>/dev/null || df .', { encoding: 'utf8', timeout: 3000 });
-    const parts = out.trim().split('\n')[1]?.split(/\s+/);
-    if (parts && parts.length >= 4) {
-      const total = parseInt(parts[1])||0, used = parseInt(parts[2])||0, avail = parseInt(parts[3])||0;
-      return { total, used, avail, pct: total ? Math.round(used/total*100) : 0 };
-    }
-  } catch {}
-  return { total:0, used:0, avail:0, pct:0 };
-}
-
-function getNetInfo() {
-  const ifaces = os.networkInterfaces();
-  const result = { ifaces: [], vpn: false };
-  for (const [name, addrs] of Object.entries(ifaces)) {
-    for (const addr of addrs||[]) {
-      if (addr.family === 'IPv4' && !addr.internal) {
-        result.ifaces.push({ name, ip: addr.address });
-        if (/^(tun|tap|wg|vpn|ppp)/i.test(name)) result.vpn = true;
-      }
-    }
-  }
-  return result;
-}
-
-const TOOLS = ['subfinder','assetfinder','waybackurls','gau','katana','hakrawler',
-               'dig','whois','nmap','httpx','nuclei','nikto','whatweb',
-               'ffuf','gobuster','arjun','dalfox','sqlmap','gf','qsreplace',
-               'curl','wget','python3','jq','git','go'];
-
-function checkTools() {
-  return TOOLS.map(t => {
-    try { execSync(`command -v ${t}`, { stdio:'ignore', timeout:1500 }); return { tool:t, ok:true }; }
-    catch { return { tool:t, ok:false }; }
-  });
-}
-
-// ── Session helpers ───────────────────────────────────────────────────────────
-function loadSession(id) {
-  const p = join(SESSIONS_DIR, `${id}.json`);
-  if (!existsSync(p)) return null;
-  try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; }
-}
-
-function saveSession(s) {
-  s.updated = new Date().toISOString();
-  writeFileSync(join(SESSIONS_DIR, `${s.id}.json`), JSON.stringify(s, null, 2));
-}
-
-function listSessions() {
-  if (!existsSync(SESSIONS_DIR)) return [];
-  return readdirSync(SESSIONS_DIR).filter(f => f.endsWith('.json')).map(f => {
-    try {
-      const s = JSON.parse(readFileSync(join(SESSIONS_DIR, f), 'utf8'));
-      return { id:s.id, target:s.target, status:s.status, phase:s.phase||'recon',
-               findingsCount:(s.findings||[]).length, messagesCount:(s.messages||[]).length,
-               updated:s.updated, created:s.created };
-    } catch { return null; }
-  }).filter(Boolean).sort((a,b) => new Date(b.updated)-new Date(a.updated));
-}
-
-function createSession(target, scope, notes) {
-  const s = {
-    id:uuidv4(), target, scope, notes:notes||'',
-    status:'active', phase:'recon',
-    created:new Date().toISOString(), updated:new Date().toISOString(),
-    messages:[], findings:[], commandHistory:[], loopIteration:0,
-  };
-  saveSession(s); return s;
-}
-
-function ensureWorkspace(sid) {
-  const d = join(WORKSPACE_DIR, sid);
-  if (!existsSync(d)) mkdirSync(d, {recursive:true});
-  return d;
-}
-
-// ── Command execution ─────────────────────────────────────────────────────────
-const BLOCKED = [/rm\s+-rf\s+\/(?!\w)/, /:\(\)\{.*\}/, /mkfs/, /shutdown\b/, /reboot\b/, /\bpoweroff\b/];
-function isSafe(cmd) { return !BLOCKED.some(p => p.test(cmd)); }
-
-function executeCommand(cmd, sid, timeout=120000) {
-  if (!isSafe(cmd)) return Promise.resolve({ stdout:'', stderr:'⛔ BLOCKED', exitCode:1 });
-  const wsDir = ensureWorkspace(sid);
-  const logPath = join(LOGS_DIR, `${sid}.log`);
-  try { appendFileSync(logPath, `\n[${new Date().toISOString()}] $ ${cmd}\n`); } catch {}
-  return new Promise(resolve => {
-    const PATH = [process.env.PATH, '/root/go/bin', `${os.homedir()}/go/bin`,
-      '/usr/local/bin','/usr/bin','/bin',`${os.homedir()}/.local/bin`].filter(Boolean).join(':');
-    const proc = spawn('bash',['-c',cmd],{ cwd:wsDir, env:{...process.env,PATH,TERM:'xterm-256color'} });
-    let stdout='', stderr='', done=false;
-    const finish = code => {
-      if (done) return; done=true;
-      const r = { stdout:stdout.slice(0,20000), stderr:stderr.slice(0,4000), exitCode:code??0, truncated:stdout.length>20000 };
-      try { appendFileSync(logPath, `OUT:${r.stdout}\nERR:${r.stderr}\nEXIT:${code}\n`); } catch {}
-      resolve(r);
-    };
-    proc.stdout.on('data', d => { stdout += d; });
-    proc.stderr.on('data', d => { stderr += d; });
-    proc.on('close', finish);
-    proc.on('error', e => { stderr += e.message; finish(1); });
-    const timer = setTimeout(() => { try{proc.kill('SIGTERM');}catch{} stderr+='\n⏱ [timeout]'; finish(124); }, timeout);
-    proc.on('close', () => clearTimeout(timer));
-  });
-}
-
-// ── Agent system prompt ───────────────────────────────────────────────────────
-const SYSTEM_PROMPT = `You are 0x-Hunt — an elite autonomous bug bounty hunter AI running on Linux/Termux. You operate inside a persistent agentic loop with full shell access.
-
-## Mission
-Systematically find security vulnerabilities in the given target, within scope. Be methodical: start passive, escalate gradually, document everything.
-
-## Toolbox
-Recon:        subfinder, assetfinder, waybackurls, gau, katana, hakrawler
-DNS/Net:      dig, nslookup, whois, host, nmap, ping
-Scanning:     httpx, nuclei, nikto, whatweb
-Fuzzing:      ffuf, gobuster, arjun, wfuzz
-Exploitation: dalfox (XSS), sqlmap (SQLi), gf, qsreplace
-Utils:        bash, python3, grep, awk, sed, jq, tee, sort, uniq, cut
-
-## Phases: RECON → ENUMERATE → SCAN → FUZZ → EXPLOIT → REPORT
-
-## Response Format — ALWAYS follow EXACTLY:
-
-**PHASE:** [current phase]
-
-**THINK:** [Analysis — what you know, what's next. MAX 3 sentences.]
+**THINK:** [max 3 sentences explaining your reasoning]
 
 **COMMAND:**
 \`\`\`bash
-<ONE non-interactive shell command or pipeline>
+<ONE non-interactive command>
 \`\`\`
 
-**EXPECT:** [Expected output]
+**EXPECT:** [what you expect to see in the output]
 
----
+**Special blocks you can emit:**
 
-### On finding a vulnerability:
 **🚨 FINDING:**
-- Type: [XSS/SQLi/SSRF/IDOR/RCE/Auth Bypass/Open Redirect/CSRF/Info Disclosure]
-- Severity: [Critical/High/Medium/Low/Informational]
-- URL/Asset: [exact URL]
-- Parameter: [vulnerable param]
-- Payload: [working payload]
-- Evidence: [response/behavior]
-- Impact: [what attacker can do]
-- Remediation: [fix]
+- Type: [vulnerability type]
+- Severity: [critical|high|medium|low|informational]
+- URL/Asset: [affected asset]
+- Parameter: [if applicable]
+- Payload: [if applicable]
+- Evidence: [supporting evidence]
+- Impact: [potential impact]
+- Remediation: [how to fix]
 
-### When you need the operator:
 **⏸ NEEDS INPUT:**
-[Type: login/credentials/CAPTCHA/2FA]
-[Exactly what you need and why]
+[Explain what information you need from the operator]
 
-### Phase transition:
 **📋 PHASE COMPLETE: [PHASE]**
-[Summary and next phase plan]
 
-## Rules
-- ONE command per response — no exceptions
-- NEVER probe out-of-scope assets
-- No interactive commands (no vim, interactive sqlmap, etc.)
-- Save output: use tee file.txt`;
+**RULES:**
+- ONE command per response
+- Never touch out-of-scope assets
+- No interactive commands (vim, interactive sqlmap, etc.)
+- Pipe output through 'tee' to persist findings
+- Use non-interactive flags (--batch, --non-interactive, -n, --quiet)
+- Stay within scope defined below
+- Maximum 150 iterations total`;
 
-// ── TUI State ─────────────────────────────────────────────────────────────────
-const state = {
-  groq          : null,
-  session       : null,
-  running       : false,
-  stopRequested : false,
-  tab           : 'log',
-  logLines      : [],
-  logScroll     : 0,
-  shellHistory  : [],
-  shellHistIdx  : -1,
+// ============================================================
+// 2. State & Session Management
+// ============================================================
+let state = {
+  sessions: [],
+  currentSessionId: null,
+  activeTab: 'log',
+  input: '',
+  cursorPos: 0,
+  history: [],
+  historyIdx: 0,
+  logScroll: 0,
+  showHelp: false,
+  status: 'idle',
+  statusMsg: '',
+  isRunning: false,
+  stopRequested: false,
+};
+
+let session = null;
+let groqClient = null;
+let isRawMode = false;
+let needsResume = false;
+
+function createSession(target, scope, notes = '') {
+  const id = randomUUID();
+  const now = new Date().toISOString();
+  return {
+    id,
+    target,
+    scope: scope.split('\n').filter(s => s.trim()),
+    notes,
+    status: 'active',
+    phase: 'recon',
+    created: now,
+    updated: now,
+    messages: [],
+    findings: [],
+    commandHistory: [],
+    loopIteration: 0,
+  };
+}
+
+function saveSession(s) {
+  if (!s) return;
+  const sess = { ...s };
+  // Cap messages to MAX_MESSAGES
+  if (sess.messages.length > MAX_MESSAGES) {
+    sess.messages = sess.messages.slice(-MAX_MESSAGES);
+  }
+  sess.updated = new Date().toISOString();
+  const path = join(SESSION_DIR, `${sess.id}.json`);
+  writeFileSync(path, JSON.stringify(sess, null, 2));
+  session = sess;
+}
+
+function loadSession(id) {
+  const path = join(SESSION_DIR, `${id}.json`);
+  if (!existsSync(path)) return null;
+  const data = JSON.parse(readFileSync(path, 'utf8'));
+  session = data;
+  session.messages = session.messages || [];
+  session.findings = session.findings || [];
+  session.commandHistory = session.commandHistory || [];
+  state.currentSessionId = session.id;
+  state.status = session.status || 'active';
+  return session;
+}
+
+function listSessions() {
+  if (!existsSync(SESSION_DIR)) return [];
+  return readdirSync(SESSION_DIR)
+    .filter(f => f.endsWith('.json'))
+    .map(f => {
+      try {
+        const data = JSON.parse(readFileSync(join(SESSION_DIR, f), 'utf8'));
+        return {
+          id: data.id,
+          target: data.target || 'unknown',
+          phase: data.phase || 'recon',
+          findings: data.findings?.length || 0,
+          status: data.status || 'active',
+          updated: data.updated || data.created || '',
+        };
+      } catch { return null; }
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.updated.localeCompare(a.updated));
+}
+
+function deleteSession(id) {
+  const path = join(SESSION_DIR, `${id}.json`);
+  if (existsSync(path)) {
+    const wsPath = join(WORKSPACE_DIR, id);
+    if (existsSync(wsPath)) {
+      spawn('rm', ['-rf', wsPath]);
+    }
+    unlinkSync(path);
+    return true;
+  }
+  return false;
+}
+
+function getWorkspaceDir(sessionId) {
+  return join(WORKSPACE_DIR, sessionId);
+}
+
+function ensureDirs() {
+  [SESSION_DIR, LOG_DIR, WORKSPACE_DIR].forEach(d => {
+    if (!existsSync(d)) mkdirSync(d, { recursive: true });
+  });
+}
+
+// ============================================================
+// 3. Logging
+// ============================================================
+function getLogPath(sessionId) {
+  return join(LOG_DIR, `${sessionId}.log`);
+}
+
+function logToFile(sessionId, text) {
+  try {
+    const path = getLogPath(sessionId);
+    appendFileSync(path, text + '\n');
+  } catch {}
+}
+
+function logCrash(error) {
+  try {
+    const path = join(LOG_DIR, 'crash.log');
+    const ts = new Date().toISOString();
+    appendFileSync(path, `\n[${ts}] ${error.stack || error}\n`);
+  } catch {}
+}
+
+// ============================================================
+// 4. Terminal & ANSI
+// ============================================================
+const CLEAR = '\x1b[2J\x1b[H';
+const HIDE_CURSOR = '\x1b[?25l';
+const SHOW_CURSOR = '\x1b[?25h';
+const SAVE_CURSOR = '\x1b[s';
+const RESTORE_CURSOR = '\x1b[u';
+
+function write(str) {
+  process.stdout.write(str);
+}
+
+function render() {
+  if (state.showHelp) {
+    renderHelp();
+    return;
+  }
+  
+  write(CLEAR + HIDE_CURSOR);
+  renderHeader();
+  renderTabs();
+  renderContent();
+  renderStatusBar();
+  renderPrompt();
+}
+
+function renderHeader() {
+  const target = session?.target || 'no session';
+  const status = session?.status || 'idle';
+  const statusColor = status === 'active' ? COLORS.green : 
+                      status === 'error' ? COLORS.red : 
+                      status === 'waiting_input' ? COLORS.yellow : COLORS.dim;
+  const isHunting = state.isRunning ? '⚡HUNTING' : 'IDLE';
+  
+  write(`${COLORS.bold}0x-HUNT v${VERSION}${COLORS.reset}`);
+  write(`  ${COLORS.cyan}${target}${COLORS.reset}`);
+  write(`  ${statusColor}[${status.toUpperCase()}]${COLORS.reset}`);
+  write(`  ${COLORS.brightYellow}${isHunting}${COLORS.reset}`);
+  write(`  ${COLORS.dim}${getRamUsage()} ${getCpuUsage()}${COLORS.reset}`);
+  write('\n');
+}
+
+function renderTabs() {
+  const tabs = ['LOG', 'FINDINGS', 'SHELL', 'FILES', 'SESSIONS'];
+  const keys = ['L', 'F', 'S', 'X', 'E'];
+  let line = ' ';
+  tabs.forEach((tab, i) => {
+    const isActive = state.activeTab === tab.toLowerCase();
+    const key = keys[i];
+    if (isActive) {
+      line += `${COLORS.bgBlue}${COLORS.white} ${key}]${tab} ${COLORS.reset}`;
+    } else {
+      line += `${COLORS.dim}[${key}]${tab}${COLORS.reset}`;
+    }
+    if (i < tabs.length - 1) line += ' ';
+  });
+  write(line + '\n');
+}
+
+function renderContent() {
+  const cols = process.stdout.columns || 80;
+  write('─'.repeat(Math.max(0, cols)) + '\n');
+  
+  switch (state.activeTab) {
+    case 'log':
+      renderLog();
+      break;
+    case 'findings':
+      renderFindings();
+      break;
+    case 'shell':
+      renderShell();
+      break;
+    case 'files':
+      renderFiles();
+      break;
+    case 'sessions':
+      renderSessions();
+      break;
+  }
+  
+  write('─'.repeat(Math.max(0, cols)) + '\n');
+}
+
+function renderLog() {
+  if (!session) {
+    write(`${COLORS.dim}No session active. Create or load one.${COLORS.reset}\n`);
+    return;
+  }
+  
+  const lines = [];
+  // Build log from messages, findings, command history
+  session.messages.forEach(msg => {
+    const role = msg.role === 'assistant' ? '🤖' : '👤';
+    const content = msg.content.length > 500 ? msg.content.substring(0, 500) + '...' : msg.content;
+    lines.push(`${COLORS.cyan}${role} ${content}${COLORS.reset}`);
+  });
+  
+  session.findings.forEach(f => {
+    const color = SEVERITY_COLORS[f.severity?.toLowerCase()] || COLORS.white;
+    lines.push(`${COLORS.brightRed}🚨 ${color}${f.text}${COLORS.reset}`);
+  });
+  
+  session.commandHistory.slice(-20).forEach(cmd => {
+    const icon = cmd.exitCode === 0 ? '✅' : '❌';
+    lines.push(`${COLORS.dim}${icon} $ ${cmd.cmd}${COLORS.reset}`);
+    if (cmd.stdout) {
+      const out = cmd.stdout.substring(0, 200);
+      lines.push(`${COLORS.dim}  ${out}${COLORS.reset}`);
+    }
+    if (cmd.stderr) {
+      const err = cmd.stderr.substring(0, 200);
+      lines.push(`${COLORS.red}  ${err}${COLORS.reset}`);
+    }
+  });
+  
+  const height = Math.max(0, (process.stdout.rows || 24) - 12);
+  const start = Math.max(0, lines.length - height + state.logScroll);
+  const end = Math.min(lines.length, start + height);
+  
+  for (let i = start; i < end; i++) {
+    write(lines[i] + '\n');
+  }
+}
+
+function renderFindings() {
+  if (!session || !session.findings.length) {
+    write(`${COLORS.dim}No findings yet.${COLORS.reset}\n`);
+    return;
+  }
+  
+  session.findings.forEach((f, i) => {
+    const color = SEVERITY_COLORS[f.severity?.toLowerCase()] || COLORS.white;
+    const prefix = f.severity?.toUpperCase() || 'INFO';
+    write(`${i+1}. ${color}[${prefix}] ${f.text.substring(0, 80)}${COLORS.reset}\n`);
+  });
+}
+
+function renderShell() {
+  if (!session) {
+    write(`${COLORS.dim}No session active.${COLORS.reset}\n`);
+    return;
+  }
+  write(`${COLORS.dim}Shell mode active. Commands run in workspace.${COLORS.reset}\n`);
+  write(`${COLORS.dim}Workspace: ${getWorkspaceDir(session.id)}${COLORS.reset}\n`);
+  write(`${COLORS.dim}Type commands directly or use !command from any tab${COLORS.reset}\n`);
+}
+
+function renderFiles() {
+  if (!session) {
+    write(`${COLORS.dim}No session active.${COLORS.reset}\n`);
+    return;
+  }
+  const ws = getWorkspaceDir(session.id);
+  if (!existsSync(ws)) {
+    write(`${COLORS.dim}Workspace empty.${COLORS.reset}\n`);
+    return;
+  }
+  try {
+    const files = readdirSync(ws);
+    if (!files.length) {
+      write(`${COLORS.dim}Workspace empty.${COLORS.reset}\n`);
+      return;
+    }
+    files.forEach(f => {
+      const st = statSync(join(ws, f));
+      const type = st.isDirectory() ? '📁' : '📄';
+      const size = (st.size / 1024).toFixed(1);
+      write(`${type} ${f} ${COLORS.dim}${size}KB${COLORS.reset}\n`);
+    });
+  } catch (e) {
+    write(`${COLORS.red}Error reading workspace: ${e.message}${COLORS.reset}\n`);
+  }
+}
+
+function renderSessions() {
+  const sessions = listSessions();
+  if (!sessions.length) {
+    write(`${COLORS.dim}No saved sessions.${COLORS.reset}\n`);
+    write(`${COLORS.dim}Use :new to create one.${COLORS.reset}\n`);
+    return;
+  }
+  sessions.forEach((s, i) => {
+    const active = s.id === state.currentSessionId ? '▶ ' : '  ';
+    const statusColor = s.status === 'active' ? COLORS.green : 
+                        s.status === 'error' ? COLORS.red : 
+                        s.status === 'waiting_input' ? COLORS.yellow : COLORS.dim;
+    write(`${active}${i+1}. ${COLORS.cyan}${s.target}${COLORS.reset} ${statusColor}${s.status}${COLORS.reset} ${s.findings} findings ${COLORS.dim}${s.phase}${COLORS.reset}\n`);
+  });
+  write(`${COLORS.dim}Use :load <id> to load a session${COLORS.reset}\n`);
+}
+
+function renderStatusBar() {
+  const findings = session?.findings?.length || 0;
+  const commands = session?.commandHistory?.length || 0;
+  const iter = session?.loopIteration || 0;
+  const ram = getRamUsage();
+  const cols = process.stdout.columns || 80;
+  
+  const left = `finds:${findings}  cmds:${commands}  iter:${iter}  ${ram}`;
+  write(left);
+  
+  // Simple progress bar
+  const pct = Math.min(100, (iter / MAX_ITERATIONS) * 100);
+  const barLen = Math.max(0, Math.min(20, cols - left.length - 10));
+  const filled = Math.floor((pct / 100) * barLen);
+  const bar = '█'.repeat(Math.max(0, filled)) + '░'.repeat(Math.max(0, barLen - filled));
+  const color = pct > 90 ? COLORS.red : pct > 70 ? COLORS.yellow : COLORS.green;
+  write(`  ${color}${bar}${COLORS.reset} ${Math.floor(pct)}%\n`);
+}
+
+function renderPrompt() {
+  const prompt = session ? `${COLORS.green}0x>${COLORS.reset} ` : `${COLORS.dim}0x>${COLORS.reset} `;
+  write(`${prompt}${state.input}\x1b[${state.cursorPos + prompt.length + 1}G`);
+}
+
+function renderHelp() {
+  write(CLEAR + HIDE_CURSOR);
+  write(`${COLORS.bold}0x-HUNT v${VERSION} — Help${COLORS.reset}\n\n`);
+  write(`${COLORS.cyan}Tabs:${COLORS.reset}\n`);
+  write(`  :log/l   :findings/f   :shell/s   :files/x   :sessions/e\n\n`);
+  write(`${COLORS.cyan}Commands:${COLORS.reset}\n`);
+  write(`  :load <id>   Load session\n`);
+  write(`  :new         Create new session\n`);
+  write(`  :del <id>    Delete session\n`);
+  write(`  :stop        Stop running agent\n`);
+  write(`  :go/:continue Resume agent\n`);
+  write(`  :report      Generate report\n`);
+  write(`  :key         Set Groq API key\n`);
+  write(`  :status      Show session status\n`);
+  write(`  :ls          List sessions\n`);
+  write(`  :clearlog    Clear log\n`);
+  write(`  :ram/:cpu/:disk/:net/:tools System info\n`);
+  write(`  :groqtest    Test API key\n`);
+  write(`  :help/?      Show this help\n`);
+  write(`  :q/:quit     Exit\n\n`);
+  write(`${COLORS.cyan}Navigation:${COLORS.reset}\n`);
+  write(`  Tab          Cycle tabs\n`);
+  write(`  j/k          Scroll log\n`);
+  write(`  g/G          Top/bottom\n`);
+  write(`  Ctrl+L       Clear log\n`);
+  write(`  Ctrl+C       Stop/exit\n\n`);
+  write(`${COLORS.dim}Press any key to return...${COLORS.reset}`);
+}
+
+// ============================================================
+// 5. System Info
+// ============================================================
+function getRamUsage() {
+  try {
+    const mem = process.memoryUsage();
+    const used = (mem.heapUsed / 1024 / 1024).toFixed(1);
+    const total = (mem.heapTotal / 1024 / 1024).toFixed(1);
+    return `${used}M/${total}M`;
+  } catch {
+    return '?/?';
+  }
+}
+
+function getCpuUsage() {
+  try {
+    const cpus = os.cpus();
+    return `${cpus.length} cores`;
+  } catch {
+    return '? cores';
+  }
+}
+
+function getSystemInfo() {
+  const load = os.loadavg();
+  const totalMem = (os.totalmem() / 1024 / 1024 / 1024).toFixed(1);
+  const freeMem = (os.freemem() / 1024 / 1024 / 1024).toFixed(1);
+  return {
+    cpu: os.cpus().length,
+    load: load.map(l => l.toFixed(2)),
+    ram: `${freeMem}G/${totalMem}G`,
+    platform: os.platform(),
+    arch: os.arch(),
+  };
+}
+
+function checkVPN() {
+  const ifaces = os.networkInterfaces();
+  for (const [name, addrs] of Object.entries(ifaces)) {
+    if (/^(tun|tap|wg|vpn|ppp)/.test(name)) {
+      for (const addr of addrs || []) {
+        if (!addr.internal && addr.family === 'IPv4') {
+          return `${name}: ${addr.address}`;
+        }
+      }
+    }
+  }
+  return 'none';
+}
+
+// ============================================================
+// 6. Input Handling
+// ============================================================
+function setupInput() {
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+  process.stdin.setEncoding('utf8');
+  isRawMode = true;
+  process.stdin.on('data', chunk => handleInput(chunk));
+}
+
+function handleInput(chunk) {
+  if (state.showHelp) {
+    state.showHelp = false;
+    render();
+    return;
+  }
+  
+  // Escape sequences
+  if (chunk === '\x1b[A') { // Up
+    if (state.history.length > 0) {
+      state.historyIdx = Math.max(0, state.historyIdx - 1);
+      state.input = state.history[state.historyIdx] || '';
+      state.cursorPos = state.input.length;
+      render();
+    }
+    return;
+  }
+  if (chunk === '\x1b[B') { // Down
+    if (state.history.length > 0) {
+      state.historyIdx = Math.min(state.history.length - 1, state.historyIdx + 1);
+      state.input = state.history[state.historyIdx] || '';
+      state.cursorPos = state.input.length;
+      render();
+    }
+    return;
+  }
+  if (chunk === '\x1b[C') { // Right
+    state.cursorPos = Math.min(state.input.length, state.cursorPos + 1);
+    render();
+    return;
+  }
+  if (chunk === '\x1b[D') { // Left
+    state.cursorPos = Math.max(0, state.cursorPos - 1);
+    render();
+    return;
+  }
+  
+  // Control sequences
+  if (chunk === '\x03') { // Ctrl+C
+    if (state.isRunning) {
+      state.stopRequested = true;
+      state.statusMsg = 'Stopping agent...';
+      render();
+    } else {
+      cleanExit();
+    }
+    return;
+  }
+  if (chunk === '\x0c') { // Ctrl+L
+    if (session) {
+      session.messages = [];
+      saveSession(session);
+    }
+    render();
+    return;
+  }
+  if (chunk === '\x15') { // Ctrl+U
+    state.input = '';
+    state.cursorPos = 0;
+    render();
+    return;
+  }
+  if (chunk === '\x09') { // Tab
+    const tabs = ['log', 'findings', 'shell', 'files', 'sessions'];
+    const idx = tabs.indexOf(state.activeTab);
+    state.activeTab = tabs[(idx + 1) % tabs.length];
+    render();
+    return;
+  }
+  if (chunk === '\x7f' || chunk === '\x08') { // Backspace
+    if (state.cursorPos > 0) {
+      state.input = state.input.slice(0, state.cursorPos - 1) + state.input.slice(state.cursorPos);
+      state.cursorPos--;
+      render();
+    }
+    return;
+  }
+  if (chunk === '\r' || chunk === '\n') { // Enter
+    if (state.input.trim()) {
+      state.history.push(state.input);
+      state.historyIdx = state.history.length;
+      const cmd = state.input.trim();
+      state.input = '';
+      state.cursorPos = 0;
+      handleCommand(cmd);
+    }
+    render();
+    return;
+  }
+  
+  // Printable characters
+  if (chunk >= ' ') {
+    state.input = state.input.slice(0, state.cursorPos) + chunk + state.input.slice(state.cursorPos);
+    state.cursorPos++;
+    render();
+  }
+}
+
+// ============================================================
+// 7. Command Router
+// ============================================================
+async function handleCommand(cmd) {
+  const parts = cmd.trim().split(/\s+/);
+  const main = parts[0].toLowerCase();
+  
+  // Tab switches
+  if ([':log', 'l'].includes(main)) { state.activeTab = 'log'; render(); return; }
+  if ([':findings', 'f'].includes(main)) { state.activeTab = 'findings'; render(); return; }
+  if ([':shell', 's'].includes(main)) { state.activeTab = 'shell'; render(); return; }
+  if ([':files', 'x'].includes(main)) { state.activeTab = 'files'; render(); return; }
+  if ([':sessions', 'e'].includes(main)) { state.activeTab = 'sessions'; render(); return; }
+  
+  // Scrolling
+  if (main === 'j' || main === ':down') { state.logScroll++; render(); return; }
+  if (main === 'k' || main === ':up') { state.logScroll = Math.max(0, state.logScroll - 1); render(); return; }
+  if (main === 'g' || main === ':top') { state.logScroll = 0; render(); return; }
+  if (main === 'G' || main === ':bot') { state.logScroll = 9999; render(); return; }
+  
+  // Help
+  if ([':help', ':h', '?'].includes(main)) {
+    state.showHelp = true;
+    render();
+    return;
+  }
+  
+  // Quit
+  if ([':q', ':quit', ':exit'].includes(main)) {
+    cleanExit();
+    return;
+  }
+  
+  // System info
+  if (main === ':ram') {
+    const info = getSystemInfo();
+    state.statusMsg = `RAM: ${info.ram}`;
+    render();
+    return;
+  }
+  if (main === ':cpu') {
+    const info = getSystemInfo();
+    state.statusMsg = `CPU: ${info.cpu} cores, load: ${info.load.join(', ')}`;
+    render();
+    return;
+  }
+  if (main === ':disk') {
+    try {
+      const result = await execCommand('df -h /');
+      state.statusMsg = `Disk:\n${result.stdout}`;
+    } catch { state.statusMsg = 'Disk info failed'; }
+    render();
+    return;
+  }
+  if (main === ':net') {
+    const vpn = checkVPN();
+    state.statusMsg = `VPN: ${vpn}`;
+    render();
+    return;
+  }
+  if (main === ':tools') {
+    const found = TOOLS.filter(t => {
+      try { 
+        const result = spawn('command', ['-v', t]);
+        return result.status === 0;
+      } catch { return false; }
+    });
+    state.statusMsg = `Tools: ${found.join(', ') || 'none found'}`;
+    render();
+    return;
+  }
+  if (main === ':status') {
+    if (!session) { state.statusMsg = 'No active session'; render(); return; }
+    state.statusMsg = `Session: ${session.target} | Phase: ${session.phase} | Iter: ${session.loopIteration} | Findings: ${session.findings.length}`;
+    render();
+    return;
+  }
+  if (main === ':groqtest') {
+    if (!groqClient) { state.statusMsg = 'No API key configured'; render(); return; }
+    try {
+      await groqClient.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: 'Hello' }],
+        max_tokens: 10,
+      });
+      state.statusMsg = '✅ Groq API test passed!';
+    } catch (e) {
+      state.statusMsg = `❌ Groq API test failed: ${e.message}`;
+    }
+    render();
+    return;
+  }
+  
+  // Session management
+  if (main === ':ls') {
+    const sessions = listSessions();
+    state.statusMsg = sessions.length ? `Found ${sessions.length} sessions` : 'No sessions found';
+    render();
+    return;
+  }
+  
+  if (main === ':load') {
+    if (parts.length < 2) {
+      state.statusMsg = 'Usage: :load <session-id>';
+      render();
+      return;
+    }
+    const id = parts[1];
+    if (loadSession(id)) {
+      state.statusMsg = `Loaded session: ${session.target}`;
+      render();
+      if (session.status === 'active') {
+        state.isRunning = true;
+        runAgentLoop();
+      }
+    } else {
+      state.statusMsg = `Session not found: ${id}`;
+      render();
+    }
+    return;
+  }
+  
+  if (main === ':new') {
+    await promptNewSession();
+    render();
+    return;
+  }
+  
+  if (main === ':del') {
+    if (parts.length < 2) {
+      state.statusMsg = 'Usage: :del <session-id>';
+      render();
+      return;
+    }
+    const id = parts[1];
+    // Confirm via prompt
+    const confirm = await promptConfirm(`Delete session ${id}? (y/N) `);
+    if (confirm) {
+      if (deleteSession(id)) {
+        if (state.currentSessionId === id) {
+          state.currentSessionId = null;
+          session = null;
+        }
+        state.statusMsg = `Deleted session: ${id}`;
+      } else {
+        state.statusMsg = `Failed to delete: ${id}`;
+      }
+    } else {
+      state.statusMsg = 'Cancelled';
+    }
+    render();
+    return;
+  }
+  
+  if (main === ':stop') {
+    if (state.isRunning) {
+      state.stopRequested = true;
+      state.statusMsg = 'Stopping agent...';
+    } else {
+      state.statusMsg = 'Agent not running';
+    }
+    render();
+    return;
+  }
+  
+  if ([':go', ':continue', ':cont'].includes(main)) {
+    if (!session) {
+      state.statusMsg = 'No session active';
+      render();
+      return;
+    }
+    if (state.isRunning) {
+      state.statusMsg = 'Agent already running';
+      render();
+      return;
+    }
+    state.isRunning = true;
+    state.stopRequested = false;
+    session.status = 'active';
+    saveSession(session);
+    render();
+    runAgentLoop();
+    return;
+  }
+  
+  if (main === ':report') {
+    if (!session) {
+      state.statusMsg = 'No session active';
+      render();
+      return;
+    }
+    generateReport();
+    render();
+    return;
+  }
+  
+  if (main === ':clearlog') {
+    if (session) {
+      session.messages = [];
+      saveSession(session);
+      state.statusMsg = 'Log cleared';
+    }
+    render();
+    return;
+  }
+  
+  if (main === ':key') {
+    if (parts.length >= 2 && parts[1].startsWith('gsk_')) {
+      setApiKey(parts[1]);
+    } else {
+      const key = await promptInput('Enter Groq API key (gsk_...): ');
+      if (key) setApiKey(key);
+    }
+    render();
+    return;
+  }
+  
+  // Shell passthrough
+  if (state.activeTab === 'shell' || cmd.startsWith('!')) {
+    const shellCmd = cmd.startsWith('!') ? cmd.slice(1).trim() : cmd.trim();
+    if (!session) {
+      state.statusMsg = 'No session active';
+      render();
+      return;
+    }
+    await executeShellCommand(shellCmd, SHELL_TIMEOUT);
+    render();
+    return;
+  }
+  
+  // Send message to agent
+  if (session && !cmd.startsWith(':')) {
+    sendUserMessage(cmd);
+    return;
+  }
+  
+  state.statusMsg = `Unknown command: ${cmd}`;
+  render();
+}
+
+// ============================================================
+// 8. Prompt Helpers (with safe raw mode handling)
+// ============================================================
+function withRawRestore(fn) {
+  return async function(...args) {
+    // Disable raw mode for user input
+    if (isRawMode) {
+      process.stdin.setRawMode(false);
+      isRawMode = false;
+    }
+    try {
+      const result = await fn(...args);
+      return result;
+    } finally {
+      // Re-enable raw mode
+      if (!isRawMode) {
+        process.stdin.setRawMode(true);
+        process.stdin.resume(); // Critical: resume after readline close
+        isRawMode = true;
+      }
+    }
+  };
+}
+
+const promptInput = withRawRestore((prompt) => {
+  return new Promise((resolve) => {
+    const rl = createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+    rl.question(prompt, (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+});
+
+const promptConfirm = withRawRestore((prompt) => {
+  return new Promise((resolve) => {
+    const rl = createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+    rl.question(prompt, (answer) => {
+      rl.close();
+      resolve(/^y/i.test(answer.trim()));
+    });
+  });
+});
+
+async function promptNewSession() {
+  const target = await promptInput('Target domain: ');
+  if (!target) { state.statusMsg = 'Cancelled'; return; }
+  
+  const scope = await promptInput('Scope (comma-separated domains): ');
+  if (!scope) { state.statusMsg = 'Cancelled'; return; }
+  
+  const notes = await promptInput('Notes (optional): ');
+  
+  const s = createSession(target, scope.replace(/,/g, '\n'), notes);
+  session = s;
+  state.currentSessionId = s.id;
+  saveSession(s);
+  state.statusMsg = `Created session: ${target}`;
+  state.isRunning = true;
+  state.stopRequested = false;
+  runAgentLoop();
+}
+
+function setApiKey(key) {
+  try {
+    writeFileSync(KEY_FILE, key.trim(), { mode: 0o600 });
+    state.statusMsg = '✅ API key saved';
+    initGroqClient();
+  } catch (e) {
+    state.statusMsg = `❌ Failed to save key: ${e.message}`;
+  }
+}
+
+function loadApiKey() {
+  try {
+    if (existsSync(KEY_FILE)) {
+      const key = readFileSync(KEY_FILE, 'utf8').trim();
+      if (key.startsWith('gsk_')) {
+        return key;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+function initGroqClient() {
+  const key = loadApiKey();
+  if (!key) return null;
+  try {
+    groqClient = new Groq({ apiKey: key });
+    return groqClient;
+  } catch {
+    return null;
+  }
+}
+
+// ============================================================
+// 9. Command Execution
+// ============================================================
+function isCommandBlocked(cmd) {
+  return BLOCKED_COMMANDS.some(pattern => pattern.test(cmd));
+}
+
+function execCommand(cmd, cwd, timeout = AGENT_TIMEOUT) {
+  return new Promise((resolve, reject) => {
+    if (isCommandBlocked(cmd)) {
+      return reject(new Error('⛔ BLOCKED: Command matches blocked pattern'));
+    }
+    
+    const child = spawn('bash', ['-c', cmd], {
+      cwd: cwd || process.cwd(),
+      env: {
+        ...process.env,
+        PATH: `${process.env.PATH}:/root/go/bin:${process.env.HOME}/go/bin:/usr/local/bin:${process.env.HOME}/.local/bin`,
+        TERM: 'xterm-256color',
+      },
+    });
+    
+    let stdout = '';
+    let stderr = '';
+    let truncated = false;
+    
+    const timer = setTimeout(() => {
+      child.kill('SIGTERM');
+      reject(new Error('Command timed out'));
+    }, timeout);
+    
+    child.stdout.on('data', (data) => {
+      const chunk = data.toString();
+      if (stdout.length + chunk.length > STDOUT_CAP) {
+        stdout += chunk.slice(0, STDOUT_CAP - stdout.length);
+        truncated = true;
+        child.stdout.destroy();
+      } else {
+        stdout += chunk;
+      }
+    });
+    
+    child.stderr.on('data', (data) => {
+      const chunk = data.toString();
+      if (stderr.length + chunk.length > STDERR_CAP) {
+        stderr += chunk.slice(0, STDERR_CAP - stderr.length);
+        truncated = true;
+        child.stderr.destroy();
+      } else {
+        stderr += chunk;
+      }
+    });
+    
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      resolve({
+        stdout: stdout.slice(0, STDOUT_CAP),
+        stderr: stderr.slice(0, STDERR_CAP),
+        exitCode: code,
+        truncated,
+        cmd,
+      });
+    });
+    
+    child.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
+}
+
+async function executeShellCommand(cmd, timeout = SHELL_TIMEOUT) {
+  if (!session) return;
+  
+  const ws = getWorkspaceDir(session.id);
+  if (!existsSync(ws)) mkdirSync(ws, { recursive: true });
+  
+  try {
+    const result = await execCommand(cmd, ws, timeout);
+    const entry = {
+      id: randomUUID(),
+      cmd,
+      ts: new Date().toISOString(),
+      phase: session.phase,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      exitCode: result.exitCode,
+    };
+    session.commandHistory.push(entry);
+    logToFile(session.id, `$ ${cmd}\n${result.stdout}\n${result.stderr}\nExit: ${result.exitCode}`);
+    saveSession(session);
+    state.statusMsg = `Command exited with code ${result.exitCode}`;
+  } catch (e) {
+    state.statusMsg = e.message;
+    logToFile(session.id, `$ ${cmd}\nError: ${e.message}`);
+  }
+}
+
+// ============================================================
+// 10. Agent Loop
+// ============================================================
+async function runAgentLoop() {
+  if (!session) return;
+  if (!groqClient) {
+    groqClient = initGroqClient();
+    if (!groqClient) {
+      state.statusMsg = 'No Groq API key configured. Use :key';
+      state.isRunning = false;
+      render();
+      return;
+    }
+  }
+  
+  state.isRunning = true;
+  state.stopRequested = false;
+  session.status = 'active';
+  saveSession(session);
+  
+  while (state.isRunning && !state.stopRequested && session.loopIteration < MAX_ITERATIONS) {
+    const result = await runAgentTurn();
+    
+    if (result?.needsInput) {
+      state.isRunning = false;
+      session.status = 'waiting_input';
+      saveSession(session);
+      render();
+      return;
+    }
+    
+    if (result?.error) {
+      state.isRunning = false;
+      session.status = 'error';
+      saveSession(session);
+      render();
+      return;
+    }
+    
+    session.loopIteration++;
+    saveSession(session);
+    render();
+    
+    await sleep(INTER_TURN_SLEEP);
+  }
+  
+  if (session.loopIteration >= MAX_ITERATIONS) {
+    session.status = 'active';
+    state.statusMsg = 'Iteration cap reached (150)';
+    state.isRunning = false;
+    saveSession(session);
+  }
+  
+  state.isRunning = false;
+  render();
+}
+
+async function runAgentTurn() {
+  if (!session) return { error: 'No session' };
+  if (!groqClient) return { error: 'No Groq client' };
+  
+  // Build context
+  const messages = [];
+  
+  // System prompt
+  messages.push({ role: 'system', content: SYSTEM_PROMPT });
+  
+  // Context header
+  const scopeText = session.scope.join('\n');
+  const header = `TARGET: ${session.target}\nSCOPE:\n${scopeText}\nNOTES: ${session.notes || 'none'}\nPHASE: ${session.phase}\nITERATION: ${session.loopIteration + 1}/${MAX_ITERATIONS}`;
+  messages.push({ role: 'user', content: header });
+  
+  // Last N messages
+  const history = session.messages.slice(-CONTEXT_WINDOW);
+  messages.push(...history);
+  
+  try {
+    const response = await groqClient.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages,
+      temperature: 0.15,
+      max_tokens: 2048,
+    });
+    
+    const content = response.choices[0].message.content;
+    session.messages.push({ role: 'assistant', content });
+    logToFile(session.id, `🤖 ${content}`);
+    
+    // Parse response
+    await parseAgentResponse(content);
+    saveSession(session);
+    return { success: true };
+    
+  } catch (e) {
+    logToFile(session.id, `❌ Agent error: ${e.message}`);
+    return { error: e.message };
+  }
+}
+
+async function parseAgentResponse(content) {
+  // Extract PHASE
+  const phaseMatch = content.match(/\*\*PHASE:\*\*\s*(\w+)/);
+  if (phaseMatch) {
+    const phase = phaseMatch[1].toLowerCase();
+    if (['recon', 'enumerate', 'scan', 'fuzz', 'exploit', 'report'].includes(phase)) {
+      session.phase = phase;
+      logToFile(session.id, `📋 Phase: ${phase}`);
+    }
+  }
+  
+  // Extract FINDING
+  const findingMatch = content.match(/\*\*🚨 FINDING:\*\*([\s\S]*?)(?=\*\*|$)/);
+  if (findingMatch) {
+    const findingText = findingMatch[1].trim();
+    const severityMatch = findingText.match(/- Severity:\s*(\w+)/);
+    const severity = severityMatch ? severityMatch[1].toLowerCase() : 'informational';
+    session.findings.push({
+      id: randomUUID(),
+      text: findingText,
+      timestamp: new Date().toISOString(),
+      phase: session.phase,
+      severity,
+    });
+    logToFile(session.id, `🚨 FINDING: ${findingText.substring(0, 100)}...`);
+  }
+  
+  // Extract NEEDS INPUT
+  const inputMatch = content.match(/\*\*⏸ NEEDS INPUT:\*\*([\s\S]*?)(?=\*\*|$)/);
+  if (inputMatch) {
+    session.status = 'waiting_input';
+    logToFile(session.id, `⏸ Needs input: ${inputMatch[1].trim()}`);
+    return { needsInput: true };
+  }
+  
+  // Extract COMMAND
+  const cmdMatch = content.match(/```bash\n([\s\S]*?)```/);
+  if (cmdMatch) {
+    const cmd = cmdMatch[1].trim();
+    if (cmd && !isCommandBlocked(cmd)) {
+      logToFile(session.id, `$ ${cmd}`);
+      // Execute command
+      const ws = getWorkspaceDir(session.id);
+      if (!existsSync(ws)) mkdirSync(ws, { recursive: true });
+      
+      try {
+        const result = await execCommand(cmd, ws, AGENT_TIMEOUT);
+        const entry = {
+          id: randomUUID(),
+          cmd,
+          ts: new Date().toISOString(),
+          phase: session.phase,
+          stdout: result.stdout,
+          stderr: result.stderr,
+          exitCode: result.exitCode,
+        };
+        session.commandHistory.push(entry);
+        logToFile(session.id, `Output: ${result.stdout.substring(0, 200)}`);
+        // Feed output back as user message
+        const feedback = `Command output (exit ${result.exitCode}):\n${result.stdout}\n${result.stderr}`;
+        session.messages.push({ role: 'user', content: feedback.substring(0, 4000) });
+        saveSession(session);
+      } catch (e) {
+        logToFile(session.id, `⛔ ${e.message}`);
+        session.messages.push({ role: 'user', content: `Error: ${e.message}` });
+        saveSession(session);
+      }
+    } else if (cmd && isCommandBlocked(cmd)) {
+      session.messages.push({ role: 'user', content: `⛔ BLOCKED: ${cmd}` });
+      logToFile(session.id, `⛔ BLOCKED: ${cmd}`);
+    }
+  }
+  
+  // Check for PHASE COMPLETE
+  if (content.includes('**📋 PHASE COMPLETE:')) {
+    logToFile(session.id, `📋 Phase complete: ${session.phase}`);
+  }
+}
+
+function sendUserMessage(msg) {
+  if (!session) return;
+  session.messages.push({ role: 'user', content: msg });
+  saveSession(session);
+  render();
+  if (!state.isRunning && session.status === 'active') {
+    state.isRunning = true;
+    runAgentLoop();
+  }
+}
+
+function generateReport() {
+  if (!session) return;
+  const report = [];
+  report.push(`# Bug Bounty Report: ${session.target}`);
+  report.push(`\n## Summary`);
+  report.push(`- Phase: ${session.phase}`);
+  report.push(`- Iterations: ${session.loopIteration}`);
+  report.push(`- Findings: ${session.findings.length}`);
+  report.push(`- Commands: ${session.commandHistory.length}`);
+  report.push(`\n## Scope`);
+  session.scope.forEach(s => report.push(`- ${s}`));
+  report.push(`\n## Findings`);
+  session.findings.forEach((f, i) => {
+    report.push(`\n### ${i+1}. ${f.text.substring(0, 60)}...`);
+    report.push(`- Severity: ${f.severity || 'unknown'}`);
+    report.push(`- Phase: ${f.phase || 'unknown'}`);
+  });
+  report.push(`\n## Command History`);
+  session.commandHistory.slice(-20).forEach(c => {
+    report.push(`- $ ${c.cmd} (exit ${c.exitCode})`);
+  });
+  
+  const content = report.join('\n');
+  const ws = getWorkspaceDir(session.id);
+  if (!existsSync(ws)) mkdirSync(ws, { recursive: true });
+  writeFileSync(join(ws, 'report.txt'), content);
+  state.statusMsg = `Report saved to ${ws}/report.txt`;
+  logToFile(session.id, `📋 Report generated`);
+}
+
+// ============================================================
+// 11. Utilities
+// ============================================================
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function cleanExit() {
+  if (isRawMode) {
+    process.stdin.setRawMode(false);
+    isRawMode = false;
+  }
+  write(SHOW_CURSOR + COLORS.reset + '\n');
+  process.exit(0);
+}
+
+// ============================================================
+// 12. Error Handling
+// ============================================================
+process.on('uncaughtException', (err) => {
+  logCrash(err);
+  if (isRawMode) {
+    process.stdin.setRawMode(false);
+    isRawMode = false;
+  }
+  write(SHOW_CURSOR + COLORS.reset + '\n');
+  console.error('Crash:', err.stack);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (err) => {
+  logCrash(err);
+  if (isRawMode) {
+    process.stdin.setRawMode(false);
+    isRawMode = false;
+  }
+  write(SHOW_CURSOR + COLORS.reset + '\n');
+  console.error('Unhandled rejection:', err);
+  process.exit(1);
+});
+
+process.on('SIGTERM', cleanExit);
+process.on('SIGINT', cleanExit);
+
+// ============================================================
+// 13. Resize Handling
+// ============================================================
+process.stdout.on('resize', () => {
+  try {
+    render();
+  } catch (e) {
+    // Silently ignore resize errors
+  }
+});
+
+// ============================================================
+// 14. Boot
+// ============================================================
+async function boot() {
+  ensureDirs();
+  write(CLEAR + HIDE_CURSOR);
+  
+  // Banner
+  write(`${COLORS.bold}${COLORS.brightRed}
+   █████╗  ██╗  ██╗     ██╗  ██╗██╗   ██╗███╗   ██╗████████╗
+  ██╔══██╗ ╚██╗██╔╝     ██║  ██║██║   ██║████╗  ██║╚══██╔══╝
+  ███████║  ╚███╔╝█████╗███████║██║   ██║██╔██╗ ██║   ██║   
+  ██╔══██║  ██╔██╗╚════╝██╔══██║██║   ██║██║╚██╗██║   ██║   
+  ██║  ██║ ██╔╝ ██╗     ██║  ██║╚██████╔╝██║ ╚████║   ██║   
+  ╚═╝  ╚═╝ ╚═╝  ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   
+  ${COLORS.reset}`);
+  write(`${COLORS.bold}0x-HUNT v${VERSION} — Autonomous Bug Bounty Hunter${COLORS.reset}\n\n`);
+  
+  // System snapshot
+  const info = getSystemInfo();
+  const vpn = checkVPN();
+  const key = loadApiKey();
+  write(`${COLORS.cyan}System:${COLORS.reset} ${info.platform} ${info.arch}  ${info.cpu} cores\n`);
+  write(`${COLORS.cyan}RAM:${COLORS.reset} ${info.ram}  ${COLORS.cyan}VPN:${COLORS.reset} ${vpn}\n`);
+  write(`${COLORS.cyan}Groq key:${COLORS.reset} ${key ? '✅ configured' : '❌ not set'}\n\n`);
+  
+  // Recent sessions
+  const sessions = listSessions().slice(0, 3);
+  if (sessions.length) {
+    write(`${COLORS.cyan}Recent sessions:${COLORS.reset}\n`);
+    sessions.forEach((s, i) => {
+      write(`  ${i+1}. ${s.target} ${COLORS.dim}(${s.findings} findings, ${s.phase})${COLORS.reset}\n`);
+    });
+    write('\n');
+  }
+  
+  write(`${COLORS.dim}Press any key to start...${COLORS.reset}`);
+  
+  // Wait for key
+  await new Promise(resolve => {
+    process.stdin.setRawMode(false);
+    process.stdin.resume();
+    process.stdin.once('data', () => {
+      process.stdin.pause();
+      resolve();
+    });
+  });
+  
+  // Init
+  if (key) initGroqClient();
+  setupInput();
+  render();
+  
+  // Periodic refresh
+  setInterval(() => {
+    if (!state.isRunning) render();
+  }, 10000);
+}
+
+boot();
   inputBuffer   : '',
   inputCursor   : 0,
   promptMode    : 'main',
